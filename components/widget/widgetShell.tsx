@@ -1,24 +1,25 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { ShellWidgetProps, AllWidgetTypes } from '@/lib/type';
+import { useDispatch } from 'react-redux';
+import { AllWidgetTypes, ShellWidgetProps } from '@/lib/type';
 
-interface WidgetShellComponentProps<T extends AllWidgetTypes> {
-  widget: ShellWidgetProps<T>;
+interface WidgetShellProps {
+  widget: ShellWidgetProps<AllWidgetTypes>;
   children: React.ReactNode;
-  onUpdate?: (updatedWidget: ShellWidgetProps<T>) => void;
+  onUpdate?: (updatedWidget: ShellWidgetProps<AllWidgetTypes>) => void;
   onDelete?: () => void;
 }
 
 const GRID_SIZE = 20;
 const RESIZE_HANDLE_SIZE = 8;
 
-export default function WidgetShell<T extends AllWidgetTypes>({
+export default function WidgetShell({
   widget,
   children,
   onUpdate,
   onDelete,
-}: WidgetShellComponentProps<T>) {
+}: WidgetShellProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);
@@ -109,11 +110,11 @@ export default function WidgetShell<T extends AllWidgetTypes>({
   };
 
   const resizeShell = (
-    shell: ShellWidgetProps<T>,
+    shell: ShellWidgetProps<AllWidgetTypes>,
     x: number,
     y: number,
     direction: string
-  ): ShellWidgetProps<T> => {
+  ): ShellWidgetProps<AllWidgetTypes> => {
     let newWidth = shell.width;
     let newHeight = shell.height;
     let newX = shell.x;
@@ -136,13 +137,7 @@ export default function WidgetShell<T extends AllWidgetTypes>({
       newY = shell.y - deltaY;
     }
 
-    return {
-      ...shell,
-      x: newX,
-      y: newY,
-      width: newWidth,
-      height: newHeight,
-    };
+    return { ...shell, x: newX, y: newY, width: newWidth, height: newHeight };
   };
 
   return (
