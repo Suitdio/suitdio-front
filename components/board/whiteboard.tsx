@@ -3,16 +3,14 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { PlusCircle, Move, Type, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface TextWidget {
-  id: string;
-  x: number;
-  y: number;
-  text: string;
-  width: number;
-  height: number;
-  isResizing: boolean;
-}
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/lib/redux/store';
+import {
+  addWidget,
+  updateWidget,
+  setSelectedWidget,
+} from '@/lib/redux/features/whiteboardSlice';
+import { ShellWidgetProps, TextWidget, AllWidgetTypes } from '@/lib/type';
 
 const GRID_SIZE = 20;
 const FONT_SIZE = 16;
@@ -20,8 +18,14 @@ const RESIZE_HANDLE_SIZE = 8;
 
 export default function Whiteboard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [widgets, setWidgets] = useState<TextWidget[]>([]);
-  const [selectedWidget, setSelectedWidget] = useState<string | null>(null);
+  const widgets = useSelector(
+    (state: RootState) => state.whiteboard.widgets
+  ) as ShellWidgetProps<TextWidget>[];
+  const selectedWidget = useSelector(
+    (state: RootState) => state.whiteboard.selectedWidget
+  );
+  const dispatch = useDispatch();
+
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);
@@ -29,8 +33,33 @@ export default function Whiteboard() {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [tool, setTool] = useState<'select' | 'text'>('select');
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [spacePressed, setSpacePressed] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !spacePressed) {
+        setSpacePressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setSpacePressed(false);
+        setIsPanning(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [spacePressed]);
 
   const drawGrid = useCallback(
     (ctx: CanvasRenderingContext2D) => {
@@ -75,28 +104,41 @@ export default function Whiteboard() {
   const drawWidgets = useCallback(
     (ctx: CanvasRenderingContext2D) => {
       widgets.forEach((widget) => {
+        // 위젯 배경 그리기
         ctx.save();
+        // 선택된 위젯은 파란색 배경, 아닌 경우 흰색 배경
         ctx.fillStyle = widget.id === selectedWidget ? '#e3f2fd' : 'white';
         ctx.fillRect(widget.x, widget.y, widget.width, widget.height);
+
+        // 위젯 테두리 그리기
+        // 선택된 위젯은 파란색 테두리, 아닌 경우 검은색 테두리
         ctx.strokeStyle = widget.id === selectedWidget ? '#2196f3' : '#000000';
         ctx.strokeRect(widget.x, widget.y, widget.width, widget.height);
-        ctx.fillStyle = 'black';
-        ctx.font = `${FONT_SIZE}px Arial`;
-        ctx.fillText(widget.text, widget.x + 5, widget.y + FONT_SIZE + 5);
 
-        // Draw resize handles if the widget is selected
+        // 텍스트 렌더링
+        ctx.fillStyle = 'black';
+        ctx.font = `${widget.innerWidget.fontSize}px Arial`;
+        ctx.fillText(
+          widget.innerWidget.text,
+          widget.x + 5, // 텍스트 좌측 여백
+          widget.y + FONT_SIZE + 5 // 텍스트 상단 여백
+        );
+
+        // 선택된 위젯인 경우 리사이즈 핸들 그리기
         if (widget.id === selectedWidget) {
+          // 4개의 모서리에 리사이즈 핸들 추가
           const handles = [
-            { x: widget.x, y: widget.y, cursor: 'nwse-resize' },
-            { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' },
-            { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' },
+            { x: widget.x, y: widget.y, cursor: 'nwse-resize' }, // 좌상단
+            { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' }, // 우상단
+            { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' }, // 좌하단
             {
               x: widget.x + widget.width,
               y: widget.y + widget.height,
               cursor: 'nwse-resize',
-            },
+            }, // 우하단
           ];
 
+          // 각 핸들 그리기
           handles.forEach((handle) => {
             ctx.fillStyle = '#2196f3';
             ctx.fillRect(
@@ -138,23 +180,46 @@ export default function Whiteboard() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    if (spacePressed) {
+      setIsPanning(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x * scale) / scale;
     const y = (e.clientY - rect.top - offset.y * scale) / scale;
 
     if (tool === 'text') {
-      const newWidget: TextWidget = {
-        id: Date.now().toString(),
-        x: Math.round(x / GRID_SIZE) * GRID_SIZE,
-        y: Math.round(y / GRID_SIZE) * GRID_SIZE,
-        text: 'New Text',
-        width: 100,
-        height: 30,
-        isResizing: false,
+      // 내부 텍스트 위젯 생성
+      const innerWidget: TextWidget = {
+        id: Date.now().toString(), // 고유 ID 생성 (현재 시간 기반)
+        type: 'text', // 위젯 타입 지정
+        text: 'New Text', // 기본 텍스트 설정
+        fontSize: FONT_SIZE, // 글자 크기 설정
+        draggable: true, // 드래그 가능하도록 설정
+        x: Math.round(x / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 X 좌표
+        y: Math.round(y / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 Y 좌표
       };
-      setWidgets([...widgets, newWidget]);
-      setSelectedWidget(newWidget.id);
-      setTool('select');
+
+      // 외부 쉘 위젯 생성 (내부 위젯을 감싸는 컨테이너)
+      const newWidget: ShellWidgetProps<TextWidget> = {
+        id: Date.now().toString(), // 쉘의 고유 ID 생성
+        type: 'shell', // 쉘 타입 지정
+        x: Math.round(x / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 X 좌표
+        y: Math.round(y / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 Y 좌표
+        width: 100, // 기본 너비 설정
+        height: 30, // 기본 높이 설정
+        resizable: true, // 크기 조절 가능하도록 설정
+        editable: true, // 편집 가능하도록 설정
+        draggable: true, // 드래그 가능하도록 설정
+        innerWidget: innerWidget, // 내부 텍스트 위젯 참조
+      };
+
+      // Redux 상태 업데이트
+      dispatch(addWidget(newWidget)); // 새 위젯을 스토어에 추가
+      dispatch(setSelectedWidget(newWidget.id)); // 새로 생성된 위젯을 선택 상태로 설정
+      setTool('select'); // 도구를 선택 모드로 변경
     } else {
       const clickedWidget = widgets.find(
         (widget) =>
@@ -164,9 +229,8 @@ export default function Whiteboard() {
           y <= widget.y + widget.height
       );
 
-      // handleMouseDown 함수 내부에서 selectedWidget 상태를 업데이트하고,
       if (clickedWidget) {
-        setSelectedWidget(clickedWidget.id);
+        dispatch(setSelectedWidget(clickedWidget.id));
         const isOnResizeHandle = isClickOnResizeHandle(clickedWidget, x, y);
         if (isOnResizeHandle) {
           setIsResizing(true);
@@ -176,14 +240,18 @@ export default function Whiteboard() {
           setDragStart({ x: x - clickedWidget.x, y: y - clickedWidget.y });
         }
       } else {
-        setSelectedWidget(null);
+        dispatch(setSelectedWidget(null));
       }
     }
 
     redraw();
   };
 
-  const isClickOnResizeHandle = (widget: TextWidget, x: number, y: number) => {
+  const isClickOnResizeHandle = (
+    widget: ShellWidgetProps<TextWidget>,
+    x: number,
+    y: number
+  ) => {
     const handles = [
       { x: widget.x, y: widget.y, direction: 'nw' },
       { x: widget.x + widget.width, y: widget.y, direction: 'ne' },
@@ -211,6 +279,17 @@ export default function Whiteboard() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    if (isPanning) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      setOffset((prev) => ({
+        x: prev.x + dx / scale,
+        y: prev.y + dy / scale,
+      }));
+      setDragStart({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - offset.x * scale) / scale;
     const y = (e.clientY - rect.top - offset.y * scale) / scale;
@@ -220,27 +299,22 @@ export default function Whiteboard() {
       if (widget) {
         const newX = Math.floor((x - dragStart.x) / GRID_SIZE) * GRID_SIZE;
         const newY = Math.floor((y - dragStart.y) / GRID_SIZE) * GRID_SIZE;
-        setWidgets(
-          widgets.map((w) =>
-            w.id === selectedWidget ? { ...w, x: newX, y: newY } : w
-          )
-        );
+        const updatedWidget = { ...widget, x: newX, y: newY };
+        dispatch(updateWidget(updatedWidget));
       }
     } else if (isResizing && selectedWidget && resizeDirection) {
-      setWidgets(
-        widgets.map((widget) =>
-          widget.id === selectedWidget
-            ? resizeWidget(widget, x, y, resizeDirection)
-            : widget
-        )
-      );
+      const widget = widgets.find((w) => w.id === selectedWidget);
+      if (widget) {
+        const updatedWidget = resizeWidget(widget, x, y, resizeDirection);
+        dispatch(updateWidget(updatedWidget));
+      }
     }
 
     redraw();
   };
 
   const resizeWidget = (
-    widget: TextWidget,
+    widget: ShellWidgetProps<TextWidget>,
     x: number,
     y: number,
     direction: string
@@ -280,6 +354,7 @@ export default function Whiteboard() {
     setIsDragging(false);
     setIsResizing(false);
     setResizeDirection(null);
+    setIsPanning(false);
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -339,7 +414,9 @@ export default function Whiteboard() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
-          className='cursor-crosshair'
+          className={`${spacePressed ? 'cursor-grab' : 'cursor-crosshair'} ${
+            isPanning ? 'cursor-grabbing' : ''
+          }`}
         />
       </div>
     </div>

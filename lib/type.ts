@@ -1,23 +1,23 @@
 // utils/types.ts
 
 // 모든 도형 타입을 포함하는 유니온 타입 정의
-export type AllShapeTypes =
-  | RectangleShape
-  | ArrowShape
-  | TextShape
-  | ImageEmbedShape
-  | PDFEmbedShape
-  | IframeEmbedShape
-  | MarkdownShape
-  | SectionShape
-  | BoardShape;
+export type AllWidgetTypes =
+  | RectangleWidget
+  | ArrowWidget
+  | TextWidget
+  | ImageEmbedWidget
+  | PDFEmbedWidget
+  | IframeEmbedWidget
+  | MarkdownWidget
+  | SectionWidget
+  | BoardWidget;
 
-// 새로운 타입을 추가할 때 여기에 | NewShapeType 형태로 추가
+// 새로운 타입을 추가할 때 여기에 | NewWidgetType 형태로 추가
 
-export interface ShapeProps {
+export interface WidgetProps {
   id: string;
-
   type:
+    | 'shell'
     | 'rectangle'
     | 'arrow'
     | 'text'
@@ -27,11 +27,24 @@ export interface ShapeProps {
     | 'markdown'
     | 'section'
     | 'board';
-
   isSelected?: boolean;
 }
 
-export interface RectangleShape extends ShapeProps {
+export interface ShellWidgetProps<T extends AllWidgetTypes>
+  extends WidgetProps {
+  type: 'shell';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isSelected?: boolean;
+  resizable: boolean;
+  editable: boolean;
+  draggable: boolean;
+  innerWidget: T; // 내부 위젯을 저장하는 속성
+}
+
+export interface RectangleWidget extends WidgetProps {
   type: 'rectangle';
   x: number;
   y: number;
@@ -41,7 +54,7 @@ export interface RectangleShape extends ShapeProps {
   draggable: boolean;
 }
 
-export interface TextShape extends ShapeProps {
+export interface TextWidget extends WidgetProps {
   type: 'text';
   x: number; // 추가
   y: number; // 추가
@@ -63,7 +76,7 @@ export interface ArrowHeadState {
   right: boolean; // 오른쪽 화살표 머리 표시 여부
 }
 
-export interface ArrowShape extends ShapeProps {
+export interface ArrowWidget extends WidgetProps {
   type: 'arrow';
   from: string;
   to: string;
@@ -73,7 +86,7 @@ export interface ArrowShape extends ShapeProps {
   arrowHeads: ArrowHeadState; // 화살표 머리 상태 추가
 }
 
-export interface SectionShape extends ShapeProps {
+export interface SectionWidget extends WidgetProps {
   type: 'section';
   x: number;
   y: number;
@@ -84,7 +97,7 @@ export interface SectionShape extends ShapeProps {
   memberIds: string[]; // 섹션에 포함된 객체들의 ID 배열
 }
 
-export interface ImageEmbedShape extends ShapeProps {
+export interface ImageEmbedWidget extends WidgetProps {
   type: 'imageEmbed';
   src: string;
   x: number;
@@ -93,7 +106,7 @@ export interface ImageEmbedShape extends ShapeProps {
   height?: number;
   draggable: boolean;
 }
-export interface PDFEmbedShape extends ShapeProps {
+export interface PDFEmbedWidget extends WidgetProps {
   type: 'pdfEmbed';
   x: number;
   y: number;
@@ -103,7 +116,7 @@ export interface PDFEmbedShape extends ShapeProps {
   draggable: boolean;
 }
 
-export interface IframeEmbedShape extends ShapeProps {
+export interface IframeEmbedWidget extends WidgetProps {
   type: 'iframeEmbed';
   x: number;
   y: number;
@@ -113,7 +126,7 @@ export interface IframeEmbedShape extends ShapeProps {
   draggable: boolean;
 }
 
-export interface MarkdownShape extends ShapeProps {
+export interface MarkdownWidget extends WidgetProps {
   type: 'markdown';
   x: number;
   y: number;
@@ -124,7 +137,7 @@ export interface MarkdownShape extends ShapeProps {
   mkText?: string;
 }
 
-export interface BoardShape extends ShapeProps {
+export interface BoardWidget extends WidgetProps {
   type: 'board';
   x: number;
   y: number;
@@ -135,51 +148,40 @@ export interface BoardShape extends ShapeProps {
 }
 
 // 타입 가드 함수
-export function isRectangle(shape: ShapeProps): shape is RectangleShape {
-  return shape.type === 'rectangle';
+export function isRectangle(widget: WidgetProps): widget is RectangleWidget {
+  return widget.type === 'rectangle';
 }
 
-export function isArrow(shape: ShapeProps): shape is ArrowShape {
-  return shape.type === 'arrow';
+export function isArrow(widget: WidgetProps): widget is ArrowWidget {
+  return widget.type === 'arrow';
 }
 
-export function isText(shape: ShapeProps): shape is TextShape {
-  return shape.type === 'text';
+export function isText(widget: WidgetProps): widget is TextWidget {
+  return widget.type === 'text';
 }
 
-export function isSection(shape: ShapeProps): shape is SectionShape {
-  return shape.type === 'section';
+export function isSection(widget: WidgetProps): widget is SectionWidget {
+  return widget.type === 'section';
 }
 
-// 관계 타입을 결정하는 헬퍼 함수
-export function determineRelationshipType(
-  arrowHeads: ArrowHeadState
-): RelationshipType {
-  if (arrowHeads.left && arrowHeads.right) {
-    return RelationshipType.Bidirectional;
-  } else if (!arrowHeads.left && !arrowHeads.right) {
-    return RelationshipType.Equal;
-  } else {
-    return RelationshipType.Unidirectional;
-  }
+export function isImageEmbed(widget: WidgetProps): widget is ImageEmbedWidget {
+  return widget.type === 'imageEmbed';
 }
 
-export function isImageEmbed(shape: ShapeProps): shape is ImageEmbedShape {
-  return shape.type === 'imageEmbed';
-}
-
-export const isPDFEmbed = (shape: ShapeProps): shape is PDFEmbedShape => {
-  return shape.type === 'pdfEmbed';
+export const isPDFEmbed = (widget: WidgetProps): widget is PDFEmbedWidget => {
+  return widget.type === 'pdfEmbed';
 };
 
-export const isIframeEmbed = (shape: ShapeProps): shape is IframeEmbedShape => {
-  return shape.type === 'iframeEmbed';
+export const isIframeEmbed = (
+  widget: WidgetProps
+): widget is IframeEmbedWidget => {
+  return widget.type === 'iframeEmbed';
 };
 
-export const isMarkdown = (shape: ShapeProps): shape is MarkdownShape => {
-  return shape.type === 'markdown';
+export const isMarkdown = (widget: WidgetProps): widget is MarkdownWidget => {
+  return widget.type === 'markdown';
 };
 
-export const isBoard = (shape: ShapeProps): shape is BoardShape => {
-  return shape.type === 'board';
+export const isBoard = (widget: WidgetProps): widget is BoardWidget => {
+  return widget.type === 'board';
 };
