@@ -11,6 +11,9 @@ import {
   setSelectedWidget,
 } from '@/lib/redux/features/whiteboardSlice';
 import { ShellWidgetProps, TextWidget, AllWidgetTypes } from '@/lib/type';
+import WidgetText from '../widget/widgetText';
+import '@blocknote/core/fonts/inter.css';
+import '@blocknote/mantine/style.css';
 
 const GRID_SIZE = 20;
 const FONT_SIZE = 16;
@@ -38,6 +41,7 @@ export default function Whiteboard() {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 스페이스바 누르면 드래그 모드, 떼면 드래그 모드 종료
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !spacePressed) {
@@ -61,6 +65,7 @@ export default function Whiteboard() {
     };
   }, [spacePressed]);
 
+  //20px을 기준으로 그리드 그리기
   const drawGrid = useCallback(
     (ctx: CanvasRenderingContext2D) => {
       ctx.save();
@@ -86,6 +91,7 @@ export default function Whiteboard() {
     [offset, scale]
   );
 
+  //브라우저 줌 이벤트 방지
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -101,61 +107,63 @@ export default function Whiteboard() {
     };
   }, []);
 
-  const drawWidgets = useCallback(
-    (ctx: CanvasRenderingContext2D) => {
-      widgets.forEach((widget) => {
-        // 위젯 배경 그리기
-        ctx.save();
-        // 선택된 위젯은 파란색 배경, 아닌 경우 흰색 배경
-        ctx.fillStyle = widget.id === selectedWidget ? '#e3f2fd' : 'white';
-        ctx.fillRect(widget.x, widget.y, widget.width, widget.height);
+  //widgets에 추가된 widget 그리기
+  // const drawWidgets = useCallback(
+  //   (ctx: CanvasRenderingContext2D) => {
+  //     widgets.forEach((widget) => {
+  //       // 위젯 배경 그리기
+  //       ctx.save();
+  //       // 선택된 위젯은 파란색 배경, 아닌 경우 흰색 배경
+  //       ctx.fillStyle = widget.id === selectedWidget ? '#e3f2fd' : 'white';
+  //       ctx.fillRect(widget.x, widget.y, widget.width, widget.height);
 
-        // 위젯 테두리 그리기
-        // 선택된 위젯은 파란색 테두리, 아닌 경우 검은색 테두리
-        ctx.strokeStyle = widget.id === selectedWidget ? '#2196f3' : '#000000';
-        ctx.strokeRect(widget.x, widget.y, widget.width, widget.height);
+  //       // 위젯 테두리 그리기
+  //       // 선택된 위젯은 파란색 테두리, 아닌 경우 검은색 테두리
+  //       ctx.strokeStyle = widget.id === selectedWidget ? '#2196f3' : '#000000';
+  //       ctx.strokeRect(widget.x, widget.y, widget.width, widget.height);
 
-        // 텍스트 렌더링
-        ctx.fillStyle = 'black';
-        ctx.font = `${widget.innerWidget.fontSize}px Arial`;
-        ctx.fillText(
-          widget.innerWidget.text,
-          widget.x + 5, // 텍스트 좌측 여백
-          widget.y + FONT_SIZE + 5 // 텍스트 상단 여백
-        );
+  //       // 텍스트 렌더링
+  //       ctx.fillStyle = 'black';
+  //       ctx.font = `${widget.innerWidget.fontSize}px Arial`;
+  //       ctx.fillText(
+  //         widget.innerWidget.text,
+  //         widget.x + 5, // 텍스트 좌측 여백
+  //         widget.y + FONT_SIZE + 5 // 텍스트 상단 여백
+  //       );
 
-        // 선택된 위젯인 경우 리사이즈 핸들 그리기
-        if (widget.id === selectedWidget) {
-          // 4개의 모서리에 리사이즈 핸들 추가
-          const handles = [
-            { x: widget.x, y: widget.y, cursor: 'nwse-resize' }, // 좌상단
-            { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' }, // 우상단
-            { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' }, // 좌하단
-            {
-              x: widget.x + widget.width,
-              y: widget.y + widget.height,
-              cursor: 'nwse-resize',
-            }, // 우하단
-          ];
+  //       // 선택된 위젯인 경우 리사이즈 핸들 그리기
+  //       if (widget.id === selectedWidget) {
+  //         // 4개의 모서리에 리사이즈 핸들 추가
+  //         const handles = [
+  //           { x: widget.x, y: widget.y, cursor: 'nwse-resize' }, // 좌상단
+  //           { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' }, // 우상단
+  //           { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' }, // 좌하단
+  //           {
+  //             x: widget.x + widget.width,
+  //             y: widget.y + widget.height,
+  //             cursor: 'nwse-resize',
+  //           }, // 우하단
+  //         ];
 
-          // 각 핸들 그리기
-          handles.forEach((handle) => {
-            ctx.fillStyle = '#2196f3';
-            ctx.fillRect(
-              handle.x - RESIZE_HANDLE_SIZE / 2,
-              handle.y - RESIZE_HANDLE_SIZE / 2,
-              RESIZE_HANDLE_SIZE,
-              RESIZE_HANDLE_SIZE
-            );
-          });
-        }
+  //         // 각 핸들 그리기
+  //         handles.forEach((handle) => {
+  //           ctx.fillStyle = '#2196f3';
+  //           ctx.fillRect(
+  //             handle.x - RESIZE_HANDLE_SIZE / 2,
+  //             handle.y - RESIZE_HANDLE_SIZE / 2,
+  //             RESIZE_HANDLE_SIZE,
+  //             RESIZE_HANDLE_SIZE
+  //           );
+  //         });
+  //       }
 
-        ctx.restore();
-      });
-    },
-    [widgets, selectedWidget]
-  );
+  //       ctx.restore();
+  //     });
+  //   },
+  //   [widgets, selectedWidget]
+  // );
 
+  // scale, offset이 변경될 때 다시 랜더링하기
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -168,14 +176,15 @@ export default function Whiteboard() {
     ctx.scale(scale, scale);
     ctx.translate(offset.x, offset.y);
     drawGrid(ctx);
-    drawWidgets(ctx);
+    // drawWidgets(ctx);
     ctx.restore();
-  }, [drawGrid, drawWidgets, scale, offset]);
+  }, [drawGrid, scale, offset]);
 
   useEffect(() => {
     redraw();
   }, [scale, offset, redraw]);
 
+  //마우스를 다운을 트리거로 위젯 생성, 선택, 드래그 모드 설정
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -195,7 +204,12 @@ export default function Whiteboard() {
       const innerWidget: TextWidget = {
         id: Date.now().toString(), // 고유 ID 생성 (현재 시간 기반)
         type: 'text', // 위젯 타입 지정
-        text: 'New Text', // 기본 텍스트 설정
+        text: JSON.stringify([
+          {
+            type: 'paragraph',
+            content: 'New Text',
+          },
+        ]), // 기본 텍스트 설정
         fontSize: FONT_SIZE, // 글자 크기 설정
         draggable: true, // 드래그 가능하도록 설정
         x: Math.round(x / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 X 좌표
@@ -247,6 +261,7 @@ export default function Whiteboard() {
     redraw();
   };
 
+  // 리사이즈 핸들 클릭 여부 확인
   const isClickOnResizeHandle = (
     widget: ShellWidgetProps<TextWidget>,
     x: number,
@@ -275,6 +290,7 @@ export default function Whiteboard() {
     return null;
   };
 
+  // 마우스 움직임으로 드래그, 리사이즈 처리
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -313,6 +329,7 @@ export default function Whiteboard() {
     redraw();
   };
 
+  // 위젯 리사이즈 처리
   const resizeWidget = (
     widget: ShellWidgetProps<TextWidget>,
     x: number,
@@ -405,7 +422,7 @@ export default function Whiteboard() {
           </Button>
         </div>
       </div>
-      <div ref={containerRef} className='flex-grow overflow-hidden'>
+      <div ref={containerRef} className='flex-grow overflow-hidden relative'>
         <canvas
           ref={canvasRef}
           width={window.innerWidth}
@@ -418,6 +435,31 @@ export default function Whiteboard() {
             isPanning ? 'cursor-grabbing' : ''
           }`}
         />
+        {widgets.map(
+          (widget) =>
+            widget.innerWidget.type === 'text' && (
+              <div
+                key={widget.id}
+                style={{
+                  position: 'absolute',
+                  left: `${widget.x * scale + offset.x}px`,
+                  top: `${widget.y * scale + offset.y}px`,
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                }}
+              >
+                <WidgetText
+                  id={widget.innerWidget.id}
+                  text={widget.innerWidget.text}
+                  fontSize={widget.innerWidget.fontSize}
+                  type='text'
+                  x={widget.x}
+                  y={widget.y}
+                  draggable={widget.draggable}
+                />
+              </div>
+            )
+        )}
       </div>
     </div>
   );

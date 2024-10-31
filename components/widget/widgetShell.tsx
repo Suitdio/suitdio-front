@@ -1,100 +1,87 @@
-'use client';
+import { ShellWidgetProps, TextWidget } from '@/lib/type';
 
-import React, { useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { AllWidgetTypes, ShellWidgetProps } from '@/lib/type';
-
-interface WidgetShellProps {
-  widget: ShellWidgetProps<AllWidgetTypes>;
-  children: React.ReactNode;
-  onUpdate?: (updatedWidget: ShellWidgetProps<AllWidgetTypes>) => void;
-  onDelete?: () => void;
-}
-
-const GRID_SIZE = 20;
 const RESIZE_HANDLE_SIZE = 8;
 
-export default function WidgetShell({
-  widget,
-  children,
-  onUpdate,
-  onDelete,
-}: WidgetShellProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeDirection, setResizeDirection] = useState<string | null>(null);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const shellRef = useRef<HTMLDivElement>(null);
+interface RenderOptions {
+  isSelected: boolean;
+  scale: number;
+  offset: { x: number; y: number };
+}
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!widget.draggable) return;
+export default class WidgetShell {
+  static render(
+    ctx: CanvasRenderingContext2D,
+    widget: ShellWidgetProps<TextWidget>,
+    options: RenderOptions
+  ) {
+    const { isSelected } = options;
 
-    const rect = shellRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    // 위젯 배경 그리기
+    ctx.save();
+    ctx.fillStyle = isSelected ? '#e3f2fd' : 'white';
+    ctx.fillRect(widget.x, widget.y, widget.width, widget.height);
 
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // 위젯 테두리 그리기
+    ctx.strokeStyle = isSelected ? '#2196f3' : '#000000';
+    ctx.strokeRect(widget.x, widget.y, widget.width, widget.height);
 
-    const isOnResizeHandle = widget.resizable && checkResizeHandle(x, y);
-    if (isOnResizeHandle) {
-      setIsResizing(true);
-      setResizeDirection(isOnResizeHandle);
-    } else {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - widget.x, y: e.clientY - widget.y });
+    // 텍스트 렌더링
+    ctx.fillStyle = 'black';
+    ctx.font = `${widget.innerWidget.fontSize}px Arial`;
+    ctx.fillText(
+      widget.innerWidget.text,
+      widget.x + 5,
+      widget.y + widget.innerWidget.fontSize + 5
+    );
+
+    // 선택된 위젯인 경우 리사이즈 핸들 그리기
+    if (isSelected) {
+      this.drawResizeHandles(ctx, widget);
     }
-  };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging && !isResizing) return;
+    ctx.restore();
+  }
 
-    if (isDragging) {
-      const newX =
-        Math.round((e.clientX - dragStart.x) / GRID_SIZE) * GRID_SIZE;
-      const newY =
-        Math.round((e.clientY - dragStart.y) / GRID_SIZE) * GRID_SIZE;
-
-      onUpdate?.({
-        ...widget,
-        x: newX,
-        y: newY,
-      });
-    } else if (isResizing && resizeDirection) {
-      const rect = shellRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      const updatedWidget = resizeShell(widget, x, y, resizeDirection);
-      onUpdate?.(updatedWidget);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setIsResizing(false);
-    setResizeDirection(null);
-  };
-
-  React.useEffect(() => {
-    if (isDragging || isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, isResizing]);
-
-  const checkResizeHandle = (x: number, y: number): string | null => {
+  static drawResizeHandles(
+    ctx: CanvasRenderingContext2D,
+    widget: ShellWidgetProps<TextWidget>
+  ) {
     const handles = [
-      { x: 0, y: 0, direction: 'nw' },
-      { x: widget.width, y: 0, direction: 'ne' },
-      { x: 0, y: widget.height, direction: 'sw' },
-      { x: widget.width, y: widget.height, direction: 'se' },
+      { x: widget.x, y: widget.y, cursor: 'nwse-resize' },
+      { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' },
+      { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' },
+      {
+        x: widget.x + widget.width,
+        y: widget.y + widget.height,
+        cursor: 'nwse-resize',
+      },
+    ];
+
+    handles.forEach((handle) => {
+      ctx.fillStyle = '#2196f3';
+      ctx.fillRect(
+        handle.x - RESIZE_HANDLE_SIZE / 2,
+        handle.y - RESIZE_HANDLE_SIZE / 2,
+        RESIZE_HANDLE_SIZE,
+        RESIZE_HANDLE_SIZE
+      );
+    });
+  }
+
+  static isClickOnResizeHandle(
+    widget: ShellWidgetProps<TextWidget>,
+    x: number,
+    y: number
+  ) {
+    const handles = [
+      { x: widget.x, y: widget.y, direction: 'nw' },
+      { x: widget.x + widget.width, y: widget.y, direction: 'ne' },
+      { x: widget.x, y: widget.y + widget.height, direction: 'sw' },
+      {
+        x: widget.x + widget.width,
+        y: widget.y + widget.height,
+        direction: 'se',
+      },
     ];
 
     for (const handle of handles) {
@@ -107,62 +94,40 @@ export default function WidgetShell({
     }
 
     return null;
-  };
+  }
 
-  const resizeShell = (
-    shell: ShellWidgetProps<AllWidgetTypes>,
+  static resizeWidget(
+    widget: ShellWidgetProps<TextWidget>,
     x: number,
     y: number,
-    direction: string
-  ): ShellWidgetProps<AllWidgetTypes> => {
-    let newWidth = shell.width;
-    let newHeight = shell.height;
-    let newX = shell.x;
-    let newY = shell.y;
+    direction: string,
+    gridSize: number
+  ) {
+    let newWidth = widget.width;
+    let newHeight = widget.height;
+    let newX = widget.x;
+    let newY = widget.y;
 
     if (direction.includes('e')) {
-      newWidth = Math.max(GRID_SIZE, Math.round(x / GRID_SIZE) * GRID_SIZE);
+      newWidth = Math.max(20, Math.round((x - widget.x) / gridSize) * gridSize);
     }
     if (direction.includes('s')) {
-      newHeight = Math.max(GRID_SIZE, Math.round(y / GRID_SIZE) * GRID_SIZE);
+      newHeight = Math.max(
+        20,
+        Math.round((y - widget.y) / gridSize) * gridSize
+      );
     }
     if (direction.includes('w')) {
-      const deltaX = Math.round((shell.x - x) / GRID_SIZE) * GRID_SIZE;
-      newWidth = Math.max(GRID_SIZE, shell.width + deltaX);
-      newX = shell.x - deltaX;
+      const deltaX = Math.round((widget.x - x) / gridSize) * gridSize;
+      newWidth = Math.max(20, widget.width + deltaX);
+      newX = widget.x - deltaX;
     }
     if (direction.includes('n')) {
-      const deltaY = Math.round((shell.y - y) / GRID_SIZE) * GRID_SIZE;
-      newHeight = Math.max(GRID_SIZE, shell.height + deltaY);
-      newY = shell.y - deltaY;
+      const deltaY = Math.round((widget.y - y) / gridSize) * gridSize;
+      newHeight = Math.max(20, widget.height + deltaY);
+      newY = widget.y - deltaY;
     }
 
-    return { ...shell, x: newX, y: newY, width: newWidth, height: newHeight };
-  };
-
-  return (
-    <div
-      ref={shellRef}
-      className={`absolute ${widget.isSelected ? 'ring-2 ring-blue-500' : ''}`}
-      style={{
-        left: widget.x,
-        top: widget.y,
-        width: widget.width,
-        height: widget.height,
-        cursor: isDragging ? 'grabbing' : 'grab',
-      }}
-      onMouseDown={handleMouseDown}
-    >
-      {children}
-
-      {widget.resizable && widget.isSelected && (
-        <>
-          <div className='absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize' />
-          <div className='absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize' />
-          <div className='absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize' />
-          <div className='absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize' />
-        </>
-      )}
-    </div>
-  );
+    return { ...widget, x: newX, y: newY, width: newWidth, height: newHeight };
+  }
 }
