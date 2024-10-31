@@ -2,13 +2,10 @@
 
 // 모든 도형 타입을 포함하는 유니온 타입 정의
 export type AllWidgetTypes =
-  | RectangleWidget
-  | ArrowWidget
   | TextWidget
   | ImageEmbedWidget
   | PDFEmbedWidget
   | IframeEmbedWidget
-  | MarkdownWidget
   | SectionWidget
   | BoardWidget;
 
@@ -17,18 +14,31 @@ export type AllWidgetTypes =
 export interface WidgetProps {
   id: string;
   type:
-    | 'shell'
-    | 'rectangle'
-    | 'arrow'
     | 'text'
-    | 'imageEmbed'
-    | 'pdfEmbed'
-    | 'iframeEmbed'
-    | 'markdown'
+    | 'image'
+    | 'pdf'
+    | 'url'
+    | 'boardLink'
     | 'section'
-    | 'board';
+    | 'mindmap'
+    | 'shell';
   isSelected?: boolean;
 }
+
+// 위젯 타입들을 유니온 타입으로 정의
+export type NodeWidgetType = 'text' | 'image' | 'pdf' | 'url' | 'boardLink';
+export type AreaWidgetType = 'section' | 'mindmap';
+export type AllWidgetType = NodeWidgetType | AreaWidgetType | 'shell';
+
+// 타입 검사를 위한 상수 배열 (런타임에서 사용)
+export const NODE_WIDGET_TYPES = [
+  'text',
+  'image',
+  'pdf',
+  'url',
+  'boardLink',
+] as const;
+export const AREA_WIDGET_TYPES = ['section', 'mindmap'] as const;
 
 export interface ShellWidgetProps<T extends AllWidgetTypes>
   extends WidgetProps {
@@ -42,16 +52,6 @@ export interface ShellWidgetProps<T extends AllWidgetTypes>
   editable: boolean;
   draggable: boolean;
   innerWidget: T; // 내부 위젯을 저장하는 속성
-}
-
-export interface RectangleWidget extends WidgetProps {
-  type: 'rectangle';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fill: string;
-  draggable: boolean;
 }
 
 export interface TextWidget extends WidgetProps {
@@ -76,15 +76,15 @@ export interface ArrowHeadState {
   right: boolean; // 오른쪽 화살표 머리 표시 여부
 }
 
-export interface ArrowWidget extends WidgetProps {
-  type: 'arrow';
-  from: string;
-  to: string;
-  points: number[];
-  arrowTipX: number;
-  arrowTipY: number;
-  arrowHeads: ArrowHeadState; // 화살표 머리 상태 추가
-}
+// export interface ArrowWidget extends WidgetProps {
+//   type: 'arrow';
+//   from: string;
+//   to: string;
+//   points: number[];
+//   arrowTipX: number;
+//   arrowTipY: number;
+//   arrowHeads: ArrowHeadState; // 화살표 머리 상태 추가
+// }
 
 export interface SectionWidget extends WidgetProps {
   type: 'section';
@@ -98,7 +98,7 @@ export interface SectionWidget extends WidgetProps {
 }
 
 export interface ImageEmbedWidget extends WidgetProps {
-  type: 'imageEmbed';
+  type: 'image';
   src: string;
   x: number;
   y: number;
@@ -107,7 +107,7 @@ export interface ImageEmbedWidget extends WidgetProps {
   draggable: boolean;
 }
 export interface PDFEmbedWidget extends WidgetProps {
-  type: 'pdfEmbed';
+  type: 'pdf';
   x: number;
   y: number;
   width?: number;
@@ -117,7 +117,7 @@ export interface PDFEmbedWidget extends WidgetProps {
 }
 
 export interface IframeEmbedWidget extends WidgetProps {
-  type: 'iframeEmbed';
+  type: 'url';
   x: number;
   y: number;
   width?: number;
@@ -126,19 +126,8 @@ export interface IframeEmbedWidget extends WidgetProps {
   draggable: boolean;
 }
 
-export interface MarkdownWidget extends WidgetProps {
-  type: 'markdown';
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  src?: string;
-  draggable: boolean;
-  mkText?: string;
-}
-
 export interface BoardWidget extends WidgetProps {
-  type: 'board';
+  type: 'boardLink';
   x: number;
   y: number;
   width: number;
@@ -148,13 +137,10 @@ export interface BoardWidget extends WidgetProps {
 }
 
 // 타입 가드 함수
-export function isRectangle(widget: WidgetProps): widget is RectangleWidget {
-  return widget.type === 'rectangle';
-}
 
-export function isArrow(widget: WidgetProps): widget is ArrowWidget {
-  return widget.type === 'arrow';
-}
+// export function isArrow(widget: WidgetProps): widget is ArrowWidget {
+//   return widget.type === 'arrow';
+// }
 
 export function isText(widget: WidgetProps): widget is TextWidget {
   return widget.type === 'text';
@@ -165,23 +151,19 @@ export function isSection(widget: WidgetProps): widget is SectionWidget {
 }
 
 export function isImageEmbed(widget: WidgetProps): widget is ImageEmbedWidget {
-  return widget.type === 'imageEmbed';
+  return widget.type === 'image';
 }
 
 export const isPDFEmbed = (widget: WidgetProps): widget is PDFEmbedWidget => {
-  return widget.type === 'pdfEmbed';
+  return widget.type === 'pdf';
 };
 
 export const isIframeEmbed = (
   widget: WidgetProps
 ): widget is IframeEmbedWidget => {
-  return widget.type === 'iframeEmbed';
-};
-
-export const isMarkdown = (widget: WidgetProps): widget is MarkdownWidget => {
-  return widget.type === 'markdown';
+  return widget.type === 'url';
 };
 
 export const isBoard = (widget: WidgetProps): widget is BoardWidget => {
-  return widget.type === 'board';
+  return widget.type === 'boardLink';
 };

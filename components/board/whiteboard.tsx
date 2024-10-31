@@ -10,12 +10,15 @@ import {
   updateWidget,
   setSelectedWidget,
 } from '@/lib/redux/features/whiteboardSlice';
-import { ShellWidgetProps, TextWidget, AllWidgetTypes } from '@/lib/type';
+import { ShellWidgetProps, AllWidgetTypes } from '@/lib/type';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
 import WidgetShell from '../widget/widgetShell';
 
-export const GRID_SIZE = 48;
+// 기본 그리드 설정
+let baseSpacing = 48; // 기본 간격
+let basePointSize = 4; // 기본 점 크기
+
 export const FONT_SIZE = 16;
 export const RESIZE_HANDLE_SIZE = 8;
 
@@ -23,7 +26,7 @@ export default function Whiteboard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const widgets = useSelector(
     (state: RootState) => state.whiteboard.widgets
-  ) as ShellWidgetProps<TextWidget>[];
+  ) as ShellWidgetProps<AllWidgetTypes>[];
   const selectedWidget = useSelector(
     (state: RootState) => state.whiteboard.selectedWidget
   );
@@ -31,7 +34,7 @@ export default function Whiteboard() {
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [tool, setTool] = useState<'select' | 'text'>('select');
+  const [tool, setTool] = useState<'select' | AllWidgetTypes['type']>('select');
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
@@ -66,10 +69,6 @@ export default function Whiteboard() {
   const drawGrid = useCallback(
     (ctx: CanvasRenderingContext2D) => {
       ctx.save();
-
-      // 기본 그리드 설정
-      let baseSpacing = 48; // 기본 간격
-      let basePointSize = 4; // 기본 점 크기
 
       // 줌 레벨에 따른 그리드 간격과 점 크기 조정
       if (scale < 0.3) {
@@ -158,41 +157,63 @@ export default function Whiteboard() {
     const x = (e.clientX - rect.left - offset.x * scale) / scale;
     const y = (e.clientY - rect.top - offset.y * scale) / scale;
 
-    if (tool === 'text') {
-      // 내부 텍스트 위젯 생성
-      const innerWidget: TextWidget = {
-        id: Date.now().toString(), // 고유 ID 생성 (현재 시간 기반)
-        type: 'text', // 위젯 타입 지정
-        text: JSON.stringify([
-          {
-            type: 'paragraph',
-            content: 'New Text',
-          },
-        ]), // 기본 텍스트 설정
-        fontSize: FONT_SIZE, // 글자 크기 설정
-        draggable: true, // 드래그 가능하도록 설정
-        x: Math.round(x / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 X 좌표
-        y: Math.round(y / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 Y 좌표
+    if (tool !== 'select') {
+      let innerWidget: AllWidgetTypes;
+      // tool 타입에 따른 innerWidget 설정
+      switch (tool) {
+        case 'text':
+          innerWidget = {
+            id: Date.now().toString(),
+            type: 'text',
+            text: JSON.stringify([
+              {
+                type: 'paragraph',
+                content: 'New Text',
+              },
+            ]),
+            fontSize: FONT_SIZE,
+            draggable: true,
+            x: Math.round(x / baseSpacing) * baseSpacing,
+            y: Math.round(y / baseSpacing) * baseSpacing,
+          };
+          break;
+
+        case 'section':
+          innerWidget = {
+            id: Date.now().toString(),
+            type: 'section',
+            width: 100,
+            height: 100,
+            fill: '#ffffff',
+            memberIds: [],
+            // section 타입에 맞는 추가 속성들 설정
+            x: Math.round(x / baseSpacing) * baseSpacing,
+            y: Math.round(y / baseSpacing) * baseSpacing,
+            draggable: true,
+          };
+          break;
+
+        default:
+          return;
+      }
+
+      // 공통 shell 위젯 생성
+      const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+        id: Date.now().toString(),
+        type: 'shell',
+        x: Math.round(x / baseSpacing) * baseSpacing,
+        y: Math.round(y / baseSpacing) * baseSpacing,
+        width: 500,
+        height: 300,
+        resizable: true,
+        editable: true,
+        draggable: true,
+        innerWidget,
       };
 
-      // 외부 쉘 위젯 생성 (내부 위젯을 감싸는 컨테이너)
-      const newWidget: ShellWidgetProps<TextWidget> = {
-        id: Date.now().toString(), // 쉘의 고유 ID 생성
-        type: 'shell', // 쉘 타입 지정
-        x: Math.round(x / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 X 좌표
-        y: Math.round(y / GRID_SIZE) * GRID_SIZE, // 그리드에 맞춘 Y 좌표
-        width: 100, // 기본 너비 설정
-        height: 30, // 기본 높이 설정
-        resizable: true, // 크기 조절 가능하도록 설정
-        editable: true, // 편집 가능하도록 설정
-        draggable: true, // 드래그 가능하도록 설정
-        innerWidget: innerWidget, // 내부 텍스트 위젯 참조
-      };
-
-      // Redux 상태 업데이트
-      dispatch(addWidget(newWidget)); // 새 위젯을 스토어에 추가
-      dispatch(setSelectedWidget(newWidget.id)); // 새로 생성된 위젯을 선택 상태로 설정
-      setTool('select'); // 도구를 선택 모드로 변경
+      dispatch(addWidget(newWidget));
+      dispatch(setSelectedWidget(newWidget.id));
+      setTool('select');
     } else {
       dispatch(setSelectedWidget(null));
     }
@@ -252,6 +273,14 @@ export default function Whiteboard() {
             variant={tool === 'text' ? 'default' : 'outline'}
             size='icon'
             onClick={() => setTool('text')}
+          >
+            <Type className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'section' ? 'default' : 'outline'}
+            size='icon'
+            onClick={() => setTool('section')}
           >
             <Type className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>

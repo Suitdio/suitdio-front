@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ShellWidgetProps, TextWidget } from '@/lib/type';
+import {
+  AllWidgetTypes,
+  NODE_WIDGET_TYPES,
+  NodeWidgetType,
+  ShellWidgetProps,
+} from '@/lib/type';
 import WidgetText from './widgetText';
 import { useDispatch } from 'react-redux';
 import {
@@ -7,13 +12,105 @@ import {
   setSelectedWidget,
   updateWidget,
 } from '@/lib/redux/features/whiteboardSlice';
+import WidgetArea from './widgetArea';
+import { snapWidgetPosition, snapWidgetResize } from '@/lib/utils/snapping';
 
 interface WidgetShellProps {
-  widget: ShellWidgetProps<TextWidget>;
+  widget: ShellWidgetProps<AllWidgetTypes>;
   isSelected: boolean;
   scale: number;
   offset: { x: number; y: number };
 }
+
+const getHandleStyle = (position: string): React.CSSProperties => {
+  const baseStyle: React.CSSProperties = {
+    position: 'absolute',
+    backgroundColor: 'transparent',
+  };
+
+  switch (position) {
+    // 모서리 핸들
+    case 'nw':
+      return {
+        ...baseStyle,
+        top: '-4px',
+        left: '-4px',
+        width: '8px',
+        height: '8px',
+        cursor: 'nw-resize',
+      };
+    case 'ne':
+      return {
+        ...baseStyle,
+        top: '-4px',
+        right: '-4px',
+        width: '8px',
+        height: '8px',
+        cursor: 'ne-resize',
+      };
+    case 'sw':
+      return {
+        ...baseStyle,
+        bottom: '-4px',
+        left: '-4px',
+        width: '8px',
+        height: '8px',
+        cursor: 'sw-resize',
+      };
+    case 'se':
+      return {
+        ...baseStyle,
+        bottom: '-4px',
+        right: '-4px',
+        width: '8px',
+        height: '8px',
+        cursor: 'se-resize',
+      };
+    // 면 핸들
+    case 'n':
+      return {
+        ...baseStyle,
+        top: '-2px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '20%',
+        height: '4px',
+        cursor: 'n-resize',
+      };
+    case 's':
+      return {
+        ...baseStyle,
+        bottom: '-2px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '20%',
+        height: '4px',
+        cursor: 's-resize',
+      };
+    case 'w':
+      return {
+        ...baseStyle,
+        left: '-2px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '4px',
+        height: '20%',
+        cursor: 'w-resize',
+      };
+    case 'e':
+      return {
+        ...baseStyle,
+        right: '-2px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '4px',
+        height: '20%',
+        cursor: 'e-resize',
+      };
+    default:
+      return baseStyle;
+  }
+};
 
 export default function WidgetShell({
   widget,
@@ -26,16 +123,42 @@ export default function WidgetShell({
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isNodeWidget, setIsNodeWidget] = useState(false);
+
+  useEffect(() => {
+    if (isSelected) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isSelected]);
+
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, isResizing]);
+
+  useEffect(() => {
+    setIsNodeWidget(isNodeWidgetType(widget.innerWidget.type));
+  }, [widget.innerWidget.type]);
 
   const renderInnerWidget = () => {
     switch (widget.innerWidget.type) {
       case 'text':
         return <WidgetText {...widget.innerWidget} />;
       // 다른 위젯 타입들도 여기에 추가 가능
+      case 'section':
+        return <WidgetArea />;
       default:
         return null;
     }
   };
+
   // 드래그 핸들러
   const handleMouseDown = (e: React.MouseEvent) => {
     if (
@@ -54,55 +177,32 @@ export default function WidgetShell({
     if (!isDragging && !isResizing) return;
 
     if (isDragging) {
-      const dx = (e.clientX - dragStart.x) / scale;
-      const dy = (e.clientY - dragStart.y) / scale;
+      const { x: snappedX, y: snappedY } = snapWidgetPosition(
+        e.clientX - dragStart.x + widget.x * scale,
+        e.clientY - dragStart.y + widget.y * scale,
+        scale
+      );
 
       dispatch(
         updateWidget({
           ...widget,
-          x: widget.x + dx,
-          y: widget.y + dy,
+          x: snappedX / scale,
+          y: snappedY / scale,
         })
       );
     } else if (isResizing) {
-      const dx = (e.clientX - dragStart.x) / scale;
-      const dy = (e.clientY - dragStart.y) / scale;
-
-      let newWidth = widget.width;
-      let newHeight = widget.height;
-      let newX = widget.x;
-      let newY = widget.y;
-
-      switch (resizeDirection) {
-        case 'se':
-          newWidth = widget.width + dx;
-          newHeight = widget.height + dy;
-          break;
-        case 'sw':
-          newWidth = widget.width - dx;
-          newHeight = widget.height + dy;
-          newX = widget.x + dx;
-          break;
-        case 'ne':
-          newWidth = widget.width + dx;
-          newHeight = widget.height - dy;
-          newY = widget.y + dy;
-          break;
-        case 'nw':
-          newWidth = widget.width - dx;
-          newHeight = widget.height - dy;
-          newX = widget.x + dx;
-          newY = widget.y + dy;
-          break;
-      }
+      const newPositions = snapWidgetResize(
+        resizeDirection!,
+        dragStart,
+        { x: e.clientX, y: e.clientY },
+        widget,
+        scale
+      );
 
       dispatch(
         updateWidget({
           ...widget,
-          x: newX,
-          y: newY,
-          width: Math.max(50, newWidth), // 최소 크기 제한
-          height: Math.max(50, newHeight),
+          ...newPositions,
         })
       );
     }
@@ -123,29 +223,18 @@ export default function WidgetShell({
     }
   };
 
-  useEffect(() => {
-    if (isSelected) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isSelected]);
-
-  useEffect(() => {
-    if (isDragging || isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, isResizing]);
+  // 타입 가드 헬퍼 함수
+  const isNodeWidgetType = (type: string): type is NodeWidgetType => {
+    return NODE_WIDGET_TYPES.includes(type as NodeWidgetType);
+  };
 
   return (
     <div
       style={{
         position: 'absolute',
         zIndex: 1,
+        // padding: `${isNodeWidget ? 'none' : '2px'}`,
+        margin: `${isNodeWidget ? '4px' : 'none'}`,
         left: `${(widget.x + offset.x) * scale}px`, // offset을 더한 후 scale 적용
         top: `${(widget.y + offset.y) * scale}px`, // offset을 더한 후 scale 적용
         width: `${widget.width}px`,
@@ -153,7 +242,11 @@ export default function WidgetShell({
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
         backgroundColor: isSelected ? '#e3f2fd' : 'white',
-        border: `2px solid ${isSelected ? '#2196f3' : '#e0e0e0'}`,
+        border: `${isSelected ? '4px solid #2196f3' : '2px solid #e0e0e0'}`,
+        outline: `${
+          isNodeWidget ? 'none' : isSelected ? 'none' : '2px solid #e0e0e0'
+        }`,
+        outlineOffset: '-2px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
         overflow: 'hidden',
       }}
@@ -167,41 +260,12 @@ export default function WidgetShell({
           <div className='resize-handle ne' style={getHandleStyle('ne')} />
           <div className='resize-handle sw' style={getHandleStyle('sw')} />
           <div className='resize-handle se' style={getHandleStyle('se')} />
+          <div className='resize-handle n' style={getHandleStyle('n')} />
+          <div className='resize-handle s' style={getHandleStyle('s')} />
+          <div className='resize-handle w' style={getHandleStyle('w')} />
+          <div className='resize-handle e' style={getHandleStyle('e')} />
         </>
       )}
     </div>
   );
 }
-
-const getHandleStyle = (position: string): React.CSSProperties => {
-  const baseStyle: React.CSSProperties = {
-    position: 'absolute',
-    width: '12px',
-    height: '12px',
-    backgroundColor: '#2196f3',
-    borderRadius: '50%',
-  };
-
-  switch (position) {
-    case 'nw':
-      return { ...baseStyle, top: '-6px', left: '-6px', cursor: 'nw-resize' };
-    case 'ne':
-      return { ...baseStyle, top: '-6px', right: '-6px', cursor: 'ne-resize' };
-    case 'sw':
-      return {
-        ...baseStyle,
-        bottom: '-6px',
-        left: '-6px',
-        cursor: 'sw-resize',
-      };
-    case 'se':
-      return {
-        ...baseStyle,
-        bottom: '-6px',
-        right: '-6px',
-        cursor: 'se-resize',
-      };
-    default:
-      return baseStyle;
-  }
-};
