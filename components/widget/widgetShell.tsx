@@ -1,133 +1,207 @@
+import React, { useEffect, useState } from 'react';
 import { ShellWidgetProps, TextWidget } from '@/lib/type';
+import WidgetText from './widgetText';
+import { useDispatch } from 'react-redux';
+import {
+  deleteWidget,
+  setSelectedWidget,
+  updateWidget,
+} from '@/lib/redux/features/whiteboardSlice';
 
-const RESIZE_HANDLE_SIZE = 8;
-
-interface RenderOptions {
+interface WidgetShellProps {
+  widget: ShellWidgetProps<TextWidget>;
   isSelected: boolean;
   scale: number;
   offset: { x: number; y: number };
 }
 
-export default class WidgetShell {
-  static render(
-    ctx: CanvasRenderingContext2D,
-    widget: ShellWidgetProps<TextWidget>,
-    options: RenderOptions
-  ) {
-    const { isSelected } = options;
+export default function WidgetShell({
+  widget,
+  isSelected,
+  scale,
+  offset,
+}: WidgetShellProps) {
+  const dispatch = useDispatch();
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<string | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-    // 위젯 배경 그리기
-    ctx.save();
-    ctx.fillStyle = isSelected ? '#e3f2fd' : 'white';
-    ctx.fillRect(widget.x, widget.y, widget.width, widget.height);
-
-    // 위젯 테두리 그리기
-    ctx.strokeStyle = isSelected ? '#2196f3' : '#000000';
-    ctx.strokeRect(widget.x, widget.y, widget.width, widget.height);
-
-    // 텍스트 렌더링
-    ctx.fillStyle = 'black';
-    ctx.font = `${widget.innerWidget.fontSize}px Arial`;
-    ctx.fillText(
-      widget.innerWidget.text,
-      widget.x + 5,
-      widget.y + widget.innerWidget.fontSize + 5
-    );
-
-    // 선택된 위젯인 경우 리사이즈 핸들 그리기
-    if (isSelected) {
-      this.drawResizeHandles(ctx, widget);
+  const renderInnerWidget = () => {
+    switch (widget.innerWidget.type) {
+      case 'text':
+        return <WidgetText {...widget.innerWidget} />;
+      // 다른 위젯 타입들도 여기에 추가 가능
+      default:
+        return null;
     }
+  };
+  // 드래그 핸들러
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (
+      e.target instanceof HTMLElement &&
+      e.target.classList.contains('resize-handle')
+    ) {
+      setIsResizing(true);
+      setResizeDirection(e.target.classList[1]); // nw, ne, sw, se
+    } else {
+      setIsDragging(true);
+    }
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
 
-    ctx.restore();
-  }
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging && !isResizing) return;
 
-  static drawResizeHandles(
-    ctx: CanvasRenderingContext2D,
-    widget: ShellWidgetProps<TextWidget>
-  ) {
-    const handles = [
-      { x: widget.x, y: widget.y, cursor: 'nwse-resize' },
-      { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' },
-      { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' },
-      {
-        x: widget.x + widget.width,
-        y: widget.y + widget.height,
-        cursor: 'nwse-resize',
-      },
-    ];
+    if (isDragging) {
+      const dx = (e.clientX - dragStart.x) / scale;
+      const dy = (e.clientY - dragStart.y) / scale;
 
-    handles.forEach((handle) => {
-      ctx.fillStyle = '#2196f3';
-      ctx.fillRect(
-        handle.x - RESIZE_HANDLE_SIZE / 2,
-        handle.y - RESIZE_HANDLE_SIZE / 2,
-        RESIZE_HANDLE_SIZE,
-        RESIZE_HANDLE_SIZE
+      dispatch(
+        updateWidget({
+          ...widget,
+          x: widget.x + dx,
+          y: widget.y + dy,
+        })
       );
-    });
-  }
+    } else if (isResizing) {
+      const dx = (e.clientX - dragStart.x) / scale;
+      const dy = (e.clientY - dragStart.y) / scale;
 
-  static isClickOnResizeHandle(
-    widget: ShellWidgetProps<TextWidget>,
-    x: number,
-    y: number
-  ) {
-    const handles = [
-      { x: widget.x, y: widget.y, direction: 'nw' },
-      { x: widget.x + widget.width, y: widget.y, direction: 'ne' },
-      { x: widget.x, y: widget.y + widget.height, direction: 'sw' },
-      {
-        x: widget.x + widget.width,
-        y: widget.y + widget.height,
-        direction: 'se',
-      },
-    ];
+      let newWidth = widget.width;
+      let newHeight = widget.height;
+      let newX = widget.x;
+      let newY = widget.y;
 
-    for (const handle of handles) {
-      if (
-        Math.abs(x - handle.x) <= RESIZE_HANDLE_SIZE / 2 &&
-        Math.abs(y - handle.y) <= RESIZE_HANDLE_SIZE / 2
-      ) {
-        return handle.direction;
+      switch (resizeDirection) {
+        case 'se':
+          newWidth = widget.width + dx;
+          newHeight = widget.height + dy;
+          break;
+        case 'sw':
+          newWidth = widget.width - dx;
+          newHeight = widget.height + dy;
+          newX = widget.x + dx;
+          break;
+        case 'ne':
+          newWidth = widget.width + dx;
+          newHeight = widget.height - dy;
+          newY = widget.y + dy;
+          break;
+        case 'nw':
+          newWidth = widget.width - dx;
+          newHeight = widget.height - dy;
+          newX = widget.x + dx;
+          newY = widget.y + dy;
+          break;
       }
-    }
 
-    return null;
-  }
-
-  static resizeWidget(
-    widget: ShellWidgetProps<TextWidget>,
-    x: number,
-    y: number,
-    direction: string,
-    gridSize: number
-  ) {
-    let newWidth = widget.width;
-    let newHeight = widget.height;
-    let newX = widget.x;
-    let newY = widget.y;
-
-    if (direction.includes('e')) {
-      newWidth = Math.max(20, Math.round((x - widget.x) / gridSize) * gridSize);
-    }
-    if (direction.includes('s')) {
-      newHeight = Math.max(
-        20,
-        Math.round((y - widget.y) / gridSize) * gridSize
+      dispatch(
+        updateWidget({
+          ...widget,
+          x: newX,
+          y: newY,
+          width: Math.max(50, newWidth), // 최소 크기 제한
+          height: Math.max(50, newHeight),
+        })
       );
     }
-    if (direction.includes('w')) {
-      const deltaX = Math.round((widget.x - x) / gridSize) * gridSize;
-      newWidth = Math.max(20, widget.width + deltaX);
-      newX = widget.x - deltaX;
-    }
-    if (direction.includes('n')) {
-      const deltaY = Math.round((widget.y - y) / gridSize) * gridSize;
-      newHeight = Math.max(20, widget.height + deltaY);
-      newY = widget.y - deltaY;
-    }
 
-    return { ...widget, x: newX, y: newY, width: newWidth, height: newHeight };
-  }
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsResizing(false);
+    setResizeDirection(null);
+  };
+
+  // 키보드 삭제 이벤트
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (isSelected && (e.key === 'Delete' || e.key === 'Backspace')) {
+      dispatch(deleteWidget(widget.id));
+    }
+  };
+
+  useEffect(() => {
+    if (isSelected) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isSelected]);
+
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, isResizing]);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        zIndex: 1,
+        left: `${(widget.x + offset.x) * scale}px`, // offset을 더한 후 scale 적용
+        top: `${(widget.y + offset.y) * scale}px`, // offset을 더한 후 scale 적용
+        width: `${widget.width}px`,
+        height: `${widget.height}px`,
+        transform: `scale(${scale})`,
+        transformOrigin: 'top left',
+        backgroundColor: isSelected ? '#e3f2fd' : 'white',
+        border: `2px solid ${isSelected ? '#2196f3' : '#e0e0e0'}`,
+        borderRadius: '4px',
+        overflow: 'hidden',
+      }}
+      onClick={() => dispatch(setSelectedWidget(widget.id))}
+      onMouseDown={handleMouseDown}
+    >
+      {renderInnerWidget()}
+      {isSelected && (
+        <>
+          <div className='resize-handle nw' style={getHandleStyle('nw')} />
+          <div className='resize-handle ne' style={getHandleStyle('ne')} />
+          <div className='resize-handle sw' style={getHandleStyle('sw')} />
+          <div className='resize-handle se' style={getHandleStyle('se')} />
+        </>
+      )}
+    </div>
+  );
 }
+
+const getHandleStyle = (position: string): React.CSSProperties => {
+  const baseStyle: React.CSSProperties = {
+    position: 'absolute',
+    width: '12px',
+    height: '12px',
+    backgroundColor: '#2196f3',
+    borderRadius: '50%',
+  };
+
+  switch (position) {
+    case 'nw':
+      return { ...baseStyle, top: '-6px', left: '-6px', cursor: 'nw-resize' };
+    case 'ne':
+      return { ...baseStyle, top: '-6px', right: '-6px', cursor: 'ne-resize' };
+    case 'sw':
+      return {
+        ...baseStyle,
+        bottom: '-6px',
+        left: '-6px',
+        cursor: 'sw-resize',
+      };
+    case 'se':
+      return {
+        ...baseStyle,
+        bottom: '-6px',
+        right: '-6px',
+        cursor: 'se-resize',
+      };
+    default:
+      return baseStyle;
+  }
+};

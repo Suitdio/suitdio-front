@@ -11,13 +11,13 @@ import {
   setSelectedWidget,
 } from '@/lib/redux/features/whiteboardSlice';
 import { ShellWidgetProps, TextWidget, AllWidgetTypes } from '@/lib/type';
-import WidgetText from '../widget/widgetText';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
+import WidgetShell from '../widget/widgetShell';
 
-const GRID_SIZE = 20;
-const FONT_SIZE = 16;
-const RESIZE_HANDLE_SIZE = 8;
+export const GRID_SIZE = 48;
+export const FONT_SIZE = 16;
+export const RESIZE_HANDLE_SIZE = 8;
 
 export default function Whiteboard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -29,9 +29,6 @@ export default function Whiteboard() {
   );
   const dispatch = useDispatch();
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeDirection, setResizeDirection] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [tool, setTool] = useState<'select' | 'text'>('select');
@@ -69,20 +66,40 @@ export default function Whiteboard() {
   const drawGrid = useCallback(
     (ctx: CanvasRenderingContext2D) => {
       ctx.save();
-      ctx.strokeStyle = '#e0e0e0';
-      ctx.lineWidth = 1;
 
-      const scaledGridSize = GRID_SIZE;
+      // 기본 그리드 설정
+      let baseSpacing = 48; // 기본 간격
+      let basePointSize = 4; // 기본 점 크기
 
-      const startX = Math.floor(-offset.x / scaledGridSize) * scaledGridSize;
-      const startY = Math.floor(-offset.y / scaledGridSize) * scaledGridSize;
-      const endX = startX + ctx.canvas.width / scale;
-      const endY = startY + ctx.canvas.height / scale;
+      // 줌 레벨에 따른 그리드 간격과 점 크기 조정
+      if (scale < 0.3) {
+        baseSpacing = 60;
+        basePointSize = 4;
+      } else {
+        baseSpacing = 48;
+      }
 
-      for (let x = startX; x < endX; x += scaledGridSize) {
-        for (let y = startY; y < endY; y += scaledGridSize) {
+      ctx.strokeStyle = '#DBDBDB';
+      ctx.lineWidth = basePointSize;
+
+      // 화면에 보이는 영역의 좌표 계산
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const visibleStartX = -offset.x;
+      const visibleEndX = canvas.width / scale - offset.x;
+      const visibleStartY = -offset.y;
+      const visibleEndY = canvas.height / scale - offset.y;
+
+      // 그리드 시작점을 간격에 맞춰 조정
+      const startX = Math.floor(visibleStartX / baseSpacing) * baseSpacing;
+      const startY = Math.floor(visibleStartY / baseSpacing) * baseSpacing;
+
+      // 화면에 보이는 영역만 그리드 그리기
+      for (let x = startX; x < visibleEndX; x += baseSpacing) {
+        for (let y = startY; y < visibleEndY; y += baseSpacing) {
           ctx.beginPath();
-          ctx.arc(x, y, 0.5, 0, 2 * Math.PI);
+          ctx.arc(x, y, basePointSize * 0.25, 0, 2 * Math.PI);
           ctx.stroke();
         }
       }
@@ -107,63 +124,6 @@ export default function Whiteboard() {
     };
   }, []);
 
-  //widgets에 추가된 widget 그리기
-  // const drawWidgets = useCallback(
-  //   (ctx: CanvasRenderingContext2D) => {
-  //     widgets.forEach((widget) => {
-  //       // 위젯 배경 그리기
-  //       ctx.save();
-  //       // 선택된 위젯은 파란색 배경, 아닌 경우 흰색 배경
-  //       ctx.fillStyle = widget.id === selectedWidget ? '#e3f2fd' : 'white';
-  //       ctx.fillRect(widget.x, widget.y, widget.width, widget.height);
-
-  //       // 위젯 테두리 그리기
-  //       // 선택된 위젯은 파란색 테두리, 아닌 경우 검은색 테두리
-  //       ctx.strokeStyle = widget.id === selectedWidget ? '#2196f3' : '#000000';
-  //       ctx.strokeRect(widget.x, widget.y, widget.width, widget.height);
-
-  //       // 텍스트 렌더링
-  //       ctx.fillStyle = 'black';
-  //       ctx.font = `${widget.innerWidget.fontSize}px Arial`;
-  //       ctx.fillText(
-  //         widget.innerWidget.text,
-  //         widget.x + 5, // 텍스트 좌측 여백
-  //         widget.y + FONT_SIZE + 5 // 텍스트 상단 여백
-  //       );
-
-  //       // 선택된 위젯인 경우 리사이즈 핸들 그리기
-  //       if (widget.id === selectedWidget) {
-  //         // 4개의 모서리에 리사이즈 핸들 추가
-  //         const handles = [
-  //           { x: widget.x, y: widget.y, cursor: 'nwse-resize' }, // 좌상단
-  //           { x: widget.x + widget.width, y: widget.y, cursor: 'nesw-resize' }, // 우상단
-  //           { x: widget.x, y: widget.y + widget.height, cursor: 'nesw-resize' }, // 좌하단
-  //           {
-  //             x: widget.x + widget.width,
-  //             y: widget.y + widget.height,
-  //             cursor: 'nwse-resize',
-  //           }, // 우하단
-  //         ];
-
-  //         // 각 핸들 그리기
-  //         handles.forEach((handle) => {
-  //           ctx.fillStyle = '#2196f3';
-  //           ctx.fillRect(
-  //             handle.x - RESIZE_HANDLE_SIZE / 2,
-  //             handle.y - RESIZE_HANDLE_SIZE / 2,
-  //             RESIZE_HANDLE_SIZE,
-  //             RESIZE_HANDLE_SIZE
-  //           );
-  //         });
-  //       }
-
-  //       ctx.restore();
-  //     });
-  //   },
-  //   [widgets, selectedWidget]
-  // );
-
-  // scale, offset이 변경될 때 다시 랜더링하기
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -176,7 +136,6 @@ export default function Whiteboard() {
     ctx.scale(scale, scale);
     ctx.translate(offset.x, offset.y);
     drawGrid(ctx);
-    // drawWidgets(ctx);
     ctx.restore();
   }, [drawGrid, scale, offset]);
 
@@ -235,62 +194,12 @@ export default function Whiteboard() {
       dispatch(setSelectedWidget(newWidget.id)); // 새로 생성된 위젯을 선택 상태로 설정
       setTool('select'); // 도구를 선택 모드로 변경
     } else {
-      const clickedWidget = widgets.find(
-        (widget) =>
-          x >= widget.x &&
-          x <= widget.x + widget.width &&
-          y >= widget.y &&
-          y <= widget.y + widget.height
-      );
-
-      if (clickedWidget) {
-        dispatch(setSelectedWidget(clickedWidget.id));
-        const isOnResizeHandle = isClickOnResizeHandle(clickedWidget, x, y);
-        if (isOnResizeHandle) {
-          setIsResizing(true);
-          setResizeDirection(isOnResizeHandle);
-        } else {
-          setIsDragging(true);
-          setDragStart({ x: x - clickedWidget.x, y: y - clickedWidget.y });
-        }
-      } else {
-        dispatch(setSelectedWidget(null));
-      }
+      dispatch(setSelectedWidget(null));
     }
 
     redraw();
   };
 
-  // 리사이즈 핸들 클릭 여부 확인
-  const isClickOnResizeHandle = (
-    widget: ShellWidgetProps<TextWidget>,
-    x: number,
-    y: number
-  ) => {
-    const handles = [
-      { x: widget.x, y: widget.y, direction: 'nw' },
-      { x: widget.x + widget.width, y: widget.y, direction: 'ne' },
-      { x: widget.x, y: widget.y + widget.height, direction: 'sw' },
-      {
-        x: widget.x + widget.width,
-        y: widget.y + widget.height,
-        direction: 'se',
-      },
-    ];
-
-    for (const handle of handles) {
-      if (
-        Math.abs(x - handle.x) <= RESIZE_HANDLE_SIZE / 2 &&
-        Math.abs(y - handle.y) <= RESIZE_HANDLE_SIZE / 2
-      ) {
-        return handle.direction;
-      }
-    }
-
-    return null;
-  };
-
-  // 마우스 움직임으로 드래그, 리사이즈 처리
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -305,72 +214,9 @@ export default function Whiteboard() {
       setDragStart({ x: e.clientX, y: e.clientY });
       return;
     }
-
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - offset.x * scale) / scale;
-    const y = (e.clientY - rect.top - offset.y * scale) / scale;
-
-    if (isDragging && selectedWidget) {
-      const widget = widgets.find((w) => w.id === selectedWidget);
-      if (widget) {
-        const newX = Math.floor((x - dragStart.x) / GRID_SIZE) * GRID_SIZE;
-        const newY = Math.floor((y - dragStart.y) / GRID_SIZE) * GRID_SIZE;
-        const updatedWidget = { ...widget, x: newX, y: newY };
-        dispatch(updateWidget(updatedWidget));
-      }
-    } else if (isResizing && selectedWidget && resizeDirection) {
-      const widget = widgets.find((w) => w.id === selectedWidget);
-      if (widget) {
-        const updatedWidget = resizeWidget(widget, x, y, resizeDirection);
-        dispatch(updateWidget(updatedWidget));
-      }
-    }
-
-    redraw();
-  };
-
-  // 위젯 리사이즈 처리
-  const resizeWidget = (
-    widget: ShellWidgetProps<TextWidget>,
-    x: number,
-    y: number,
-    direction: string
-  ) => {
-    let newWidth = widget.width;
-    let newHeight = widget.height;
-    let newX = widget.x;
-    let newY = widget.y;
-
-    if (direction.includes('e')) {
-      newWidth = Math.max(
-        20,
-        Math.round((x - widget.x) / GRID_SIZE) * GRID_SIZE
-      );
-    }
-    if (direction.includes('s')) {
-      newHeight = Math.max(
-        20,
-        Math.round((y - widget.y) / GRID_SIZE) * GRID_SIZE
-      );
-    }
-    if (direction.includes('w')) {
-      const deltaX = Math.round((widget.x - x) / GRID_SIZE) * GRID_SIZE;
-      newWidth = Math.max(20, widget.width + deltaX);
-      newX = widget.x - deltaX;
-    }
-    if (direction.includes('n')) {
-      const deltaY = Math.round((widget.y - y) / GRID_SIZE) * GRID_SIZE;
-      newHeight = Math.max(20, widget.height + deltaY);
-      newY = widget.y - deltaY;
-    }
-
-    return { ...widget, x: newX, y: newY, width: newWidth, height: newHeight };
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
-    setIsResizing(false);
-    setResizeDirection(null);
     setIsPanning(false);
   };
 
@@ -435,31 +281,16 @@ export default function Whiteboard() {
             isPanning ? 'cursor-grabbing' : ''
           }`}
         />
-        {widgets.map(
-          (widget) =>
-            widget.innerWidget.type === 'text' && (
-              <div
-                key={widget.id}
-                style={{
-                  position: 'absolute',
-                  left: `${widget.x * scale + offset.x}px`,
-                  top: `${widget.y * scale + offset.y}px`,
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
-                }}
-              >
-                <WidgetText
-                  id={widget.innerWidget.id}
-                  text={widget.innerWidget.text}
-                  fontSize={widget.innerWidget.fontSize}
-                  type='text'
-                  x={widget.x}
-                  y={widget.y}
-                  draggable={widget.draggable}
-                />
-              </div>
-            )
-        )}
+        {/* WidgetShell 컴포넌트들을 렌더링 */}
+        {widgets.map((widget) => (
+          <WidgetShell
+            key={widget.id}
+            widget={widget}
+            isSelected={widget.id === selectedWidget}
+            scale={scale}
+            offset={offset}
+          />
+        ))}
       </div>
     </div>
   );

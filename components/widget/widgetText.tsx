@@ -4,6 +4,7 @@ import { BlockNoteView } from '@blocknote/mantine';
 import { useCreateBlockNote } from '@blocknote/react';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
+import { relative } from 'path';
 
 export default function WidgetText({ text, fontSize }: TextWidgetType) {
   const initialContent: PartialBlock[] | undefined = text
@@ -15,8 +16,8 @@ export default function WidgetText({ text, fontSize }: TextWidgetType) {
     initialContent,
   });
   return (
-    <div>
-      <BlockNoteView editor={editor} />
+    <div style={{ zIndex: -1, position: 'relative' }}>
+      <BlockNoteView editor={editor} editable={true} />
     </div>
   );
 }
