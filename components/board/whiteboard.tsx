@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { PlusCircle, Move, Type, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+  PlusCircle,
+  Move,
+  Type,
+  ZoomIn,
+  ZoomOut,
+  AppWindowMacIcon,
+  MoveDownRight,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/redux/store';
@@ -10,10 +19,12 @@ import {
   updateWidget,
   setSelectedWidget,
 } from '@/lib/redux/features/whiteboardSlice';
-import { ShellWidgetProps, AllWidgetTypes } from '@/lib/type';
+import { ShellWidgetProps, AllWidgetTypes, AllWidgetType } from '@/lib/type';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
 import WidgetShell from '../widget/widgetShell';
+import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
+import { isArrayBuffer } from 'util/types';
 
 // 기본 그리드 설정
 let baseSpacing = 48; // 기본 간격
@@ -34,10 +45,13 @@ export default function Whiteboard() {
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [tool, setTool] = useState<'select' | AllWidgetTypes['type']>('select');
+  const [tool, setTool] = useState<'select' | AllWidgetType>('select');
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
+  const isArrowMode = useSelector(
+    (state: RootState) => state.arrow.isArrowMode
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -122,6 +136,11 @@ export default function Whiteboard() {
       container.removeEventListener('wheel', preventDefault);
     };
   }, []);
+
+  //arrow 모드 종료 시 선택된 위젯 초기화
+  useEffect(() => {
+    dispatch(setSelectedWidget(null));
+  }, [isArrowMode]);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -259,6 +278,7 @@ export default function Whiteboard() {
 
   return (
     <div className='flex flex-col h-screen'>
+      {/* 툴바 */}
       <div className='flex justify-between items-center p-4 bg-gray-100 border-b'>
         <div className='flex space-x-2'>
           <Button
@@ -282,7 +302,23 @@ export default function Whiteboard() {
             size='icon'
             onClick={() => setTool('section')}
           >
-            <Type className='h-4 w-4' />
+            <AppWindowMacIcon className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'arrow' ? 'default' : 'outline'}
+            size='icon'
+            onClick={() => dispatch(setIsArrowMode(true))}
+          >
+            <MoveDownRight className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'arrow' ? 'default' : 'outline'}
+            size='icon'
+            onClick={() => dispatch(setIsArrowMode(false))}
+          >
+            <X className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
           </Button>
         </div>

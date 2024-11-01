@@ -21,14 +21,15 @@ export interface WidgetProps {
     | 'boardLink'
     | 'section'
     | 'mindmap'
-    | 'shell';
+    | 'shell'
+    | 'arrow';
   isSelected?: boolean;
 }
 
 // 위젯 타입들을 유니온 타입으로 정의
 export type NodeWidgetType = 'text' | 'image' | 'pdf' | 'url' | 'boardLink';
 export type AreaWidgetType = 'section' | 'mindmap';
-export type AllWidgetType = NodeWidgetType | AreaWidgetType | 'shell';
+export type AllWidgetType = NodeWidgetType | AreaWidgetType | 'shell' | 'arrow';
 
 // 타입 검사를 위한 상수 배열 (런타임에서 사용)
 export const NODE_WIDGET_TYPES = [

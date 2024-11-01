@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import whiteboardReducer from './features/whiteboardSlice';
+import arrowReducer from './features/arrowSlice';
 
 export const store = configureStore({
   reducer: {
     whiteboard: whiteboardReducer,
+    arrow: arrowReducer,
   },
 });
 

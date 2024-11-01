@@ -6,7 +6,7 @@ import {
   ShellWidgetProps,
 } from '@/lib/type';
 import WidgetText from './widgetText';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   deleteWidget,
   setSelectedWidget,
@@ -14,6 +14,7 @@ import {
 } from '@/lib/redux/features/whiteboardSlice';
 import WidgetArea from './widgetArea';
 import { snapWidgetPosition, snapWidgetResize } from '@/lib/utils/snapping';
+import { RootState } from '@/lib/redux/store';
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
@@ -22,6 +23,7 @@ interface WidgetShellProps {
   offset: { x: number; y: number };
 }
 
+//resize 핸들 스타일 함수
 const getHandleStyle = (position: string): React.CSSProperties => {
   const baseStyle: React.CSSProperties = {
     position: 'absolute',
@@ -108,6 +110,51 @@ const getHandleStyle = (position: string): React.CSSProperties => {
   }
 };
 
+// arrow 노드 스타일 함수 추가
+const getArrowNodeStyle = (position: string): React.CSSProperties => {
+  const baseStyle: React.CSSProperties = {
+    position: 'absolute',
+    width: '6px',
+    height: '6px',
+    backgroundColor: '#FFB300',
+    outline: '2px solid #F1F5F9', // 테두리 추가
+    borderRadius: '50%',
+  };
+
+  switch (position) {
+    case 'n':
+      return {
+        ...baseStyle,
+        top: '-4px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+      };
+    case 's':
+      return {
+        ...baseStyle,
+        bottom: '-4px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+      };
+    case 'w':
+      return {
+        ...baseStyle,
+        left: '-4px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+      };
+    case 'e':
+      return {
+        ...baseStyle,
+        right: '-4px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+      };
+    default:
+      return baseStyle;
+  }
+};
+
 export default function WidgetShell({
   widget,
   isSelected,
@@ -120,6 +167,9 @@ export default function WidgetShell({
   const [resizeDirection, setResizeDirection] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isNodeWidget, setIsNodeWidget] = useState(false);
+  const isArrowMode = useSelector(
+    (state: RootState) => state.arrow.isArrowMode
+  );
 
   useEffect(() => {
     if (isSelected) {
@@ -239,11 +289,13 @@ export default function WidgetShell({
         transform: `scale(${scale})`,
         transformOrigin: '0 0',
         backgroundColor: isSelected ? 'white' : 'white',
-        border: `2px solid ${isSelected ? ' #BBDEFB' : '#e0e0e0'}`,
+        border: `2px solid ${
+          isSelected ? ' #BBDEFB' : isArrowMode ? '#F1F5F9' : '#e0e0e0'
+        }`,
         outline: `${isSelected ? '2px solid #BBDEFB' : 'none'}`,
         outlineOffset: '0px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
-        overflow: 'hidden',
+        // overflow: 'hidden',
       }}
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
@@ -259,6 +311,14 @@ export default function WidgetShell({
           <div className='resize-handle s' style={getHandleStyle('s')} />
           <div className='resize-handle w' style={getHandleStyle('w')} />
           <div className='resize-handle e' style={getHandleStyle('e')} />
+        </>
+      )}
+      {isArrowMode && (
+        <>
+          <div className='arrow-node n' style={getArrowNodeStyle('n')} />
+          <div className='arrow-node s' style={getArrowNodeStyle('s')} />
+          <div className='arrow-node w' style={getArrowNodeStyle('w')} />
+          <div className='arrow-node e' style={getArrowNodeStyle('e')} />
         </>
       )}
     </div>
