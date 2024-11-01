@@ -14,7 +14,12 @@ import {
   updateWidget,
 } from '@/lib/redux/features/whiteboardSlice';
 import WidgetArea from './widgetArea';
-import { snapWidgetPosition, snapWidgetResize } from '@/lib/utils/snapping';
+import {
+  snap,
+  snapHeight,
+  snapWidgetPosition,
+  snapWidgetResize,
+} from '@/lib/utils/snapping';
 import { RootState } from '@/lib/redux/store';
 
 interface WidgetShellProps {
@@ -217,6 +222,18 @@ export default function WidgetShell({
     setIsNodeWidget(isNodeWidgetType(widget.innerWidget.type));
   }, [widget.innerWidget.type]);
 
+  const handleHeightChange = (height: number) => {
+    if (height !== widget.height) {
+      const snappedHeight = snapHeight(height);
+      dispatch(
+        updateWidget({
+          ...widget,
+          height: snappedHeight,
+        })
+      );
+    }
+  };
+
   const renderInnerWidget = () => {
     switch (widget.innerWidget.type) {
       case 'text':
@@ -225,6 +242,7 @@ export default function WidgetShell({
             {...widget.innerWidget}
             editable={isEditMode}
             autoFocus={isEditMode}
+            onHeightChange={handleHeightChange}
           />
         );
       // 다른 위젯 타입들도 여기에 추가 가능

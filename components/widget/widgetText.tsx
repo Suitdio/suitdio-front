@@ -4,12 +4,12 @@ import { BlockNoteView } from '@blocknote/mantine';
 import { useCreateBlockNote } from '@blocknote/react';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
-import { relative } from 'path';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface WidgetTextProps extends TextWidgetType {
   editable: boolean;
   autoFocus?: boolean;
+  onHeightChange: (height: number) => void;
 }
 
 export default function WidgetText({
@@ -17,7 +17,11 @@ export default function WidgetText({
   editable,
   fontSize,
   autoFocus,
+  onHeightChange,
 }: WidgetTextProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [currentHeight, setCurrentHeight] = useState(184);
+
   const initialContent: PartialBlock[] | undefined = text
     ? JSON.parse(text)
     : undefined;
@@ -27,13 +31,36 @@ export default function WidgetText({
   });
 
   useEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const newHeight = containerRef.current.clientHeight;
+        if (newHeight !== currentHeight) {
+          setCurrentHeight(newHeight);
+          onHeightChange(newHeight);
+        }
+      }
+    };
+
+    updateHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeight);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [currentHeight, onHeightChange]);
+
+  useEffect(() => {
     if (autoFocus && editable) {
       editor.focus();
     }
   }, [autoFocus, editable, editor]);
 
   return (
-    <div style={{ zIndex: -1, position: 'relative' }}>
+    <div ref={containerRef} style={{ zIndex: -1, position: 'relative' }}>
       <BlockNoteView editor={editor} editable={editable} />
     </div>
   );

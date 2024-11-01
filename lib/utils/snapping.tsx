@@ -117,3 +117,11 @@ export const snapWidgetResize = (
     height: Math.max(50, newHeight),
   };
 };
+
+export const snapHeight = (height: number) => {
+  const snapGrid = 48;
+  const share = height / snapGrid;
+
+  const snappedHeight = snapGrid * (Math.round(share) + 1) - 8;
+  return Math.max(height, snappedHeight);
+};
