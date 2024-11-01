@@ -29,7 +29,7 @@ const getHandleStyle = (position: string): React.CSSProperties => {
   };
 
   switch (position) {
-    // 모서리 핸들 - 더 넓은 클릭 영역
+    // 모서리 핸들
     case 'nw':
       return {
         ...baseStyle,
@@ -66,7 +66,7 @@ const getHandleStyle = (position: string): React.CSSProperties => {
         height: '16px',
         cursor: 'se-resize',
       };
-    // 면 핸들 - 전체 면적으로 확장
+    // 면 핸들
     case 'n':
       return {
         ...baseStyle,
@@ -231,19 +231,17 @@ export default function WidgetShell({
         position: 'absolute',
         zIndex: 1,
         // padding: `${isNodeWidget ? 'none' : '2px'}`,
-        margin: isNodeWidget ? '4px ' : '0',
+        margin: isNodeWidget ? `${4 * scale}px` : '0',
         left: `${(widget.x + offset.x) * scale}px`, // offset을 더한 후 scale 적용
         top: `${(widget.y + offset.y) * scale}px`, // offset을 더한 후 scale 적용
         width: `${widget.width}px`,
         height: `${widget.height}px`,
         transform: `scale(${scale})`,
-        transformOrigin: 'top left',
-        backgroundColor: isSelected ? '#e3f2fd' : 'white',
-        border: `${isSelected ? '4px solid #2196f3' : '2px solid #e0e0e0'}`,
-        outline: `${
-          isNodeWidget ? 'none' : isSelected ? 'none' : '2px solid #e0e0e0'
-        }`,
-        outlineOffset: '-2px', // 음수 값을 주면 안쪽으로 들어갑니다
+        transformOrigin: '0 0',
+        backgroundColor: isSelected ? 'white' : 'white',
+        border: `2px solid ${isSelected ? ' #BBDEFB' : '#e0e0e0'}`,
+        outline: `${isSelected ? '2px solid #BBDEFB' : 'none'}`,
+        outlineOffset: '0px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
         overflow: 'hidden',
       }}
