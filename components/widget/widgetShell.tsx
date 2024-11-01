@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import {
   AllWidgetTypes,
   NODE_WIDGET_TYPES,
@@ -9,6 +9,7 @@ import WidgetText from './widgetText';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   deleteWidget,
+  setEditModeWidgets,
   setSelectedWidget,
   updateWidget,
 } from '@/lib/redux/features/whiteboardSlice';
@@ -18,9 +19,11 @@ import { RootState } from '@/lib/redux/store';
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
-  isSelected: boolean;
   scale: number;
   offset: { x: number; y: number };
+  draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 
 //resize 핸들 스타일 함수
@@ -157,9 +160,11 @@ const getArrowNodeStyle = (position: string): React.CSSProperties => {
 
 export default function WidgetShell({
   widget,
-  isSelected,
   scale,
   offset,
+  draggable,
+  editable,
+  resizeable,
 }: WidgetShellProps) {
   const dispatch = useDispatch();
   const [isDragging, setIsDragging] = useState(false);
@@ -170,6 +175,25 @@ export default function WidgetShell({
   const isArrowMode = useSelector(
     (state: RootState) => state.arrow.isArrowMode
   );
+  const editModeWidgets = useSelector(
+    (state: RootState) => state.whiteboard.editModeWidgets
+  );
+  const selectedWidget = useSelector(
+    (state: RootState) => state.whiteboard.selectedWidget
+  );
+  const [isSelected, setIsSelected] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  useEffect(() => {
+    setIsSelected(selectedWidget === widget.id);
+    if (selectedWidget !== null && selectedWidget !== editModeWidgets) {
+      dispatch(setEditModeWidgets(null));
+    }
+  }, [selectedWidget]);
+
+  useEffect(() => {
+    setIsEditMode(editModeWidgets === widget.id);
+  }, [editModeWidgets]);
 
   useEffect(() => {
     if (isSelected) {
@@ -196,7 +220,13 @@ export default function WidgetShell({
   const renderInnerWidget = () => {
     switch (widget.innerWidget.type) {
       case 'text':
-        return <WidgetText {...widget.innerWidget} />;
+        return (
+          <WidgetText
+            {...widget.innerWidget}
+            editable={isEditMode}
+            autoFocus={isEditMode}
+          />
+        );
       // 다른 위젯 타입들도 여기에 추가 가능
       case 'section':
         return <WidgetArea />;
@@ -207,20 +237,26 @@ export default function WidgetShell({
 
   // 드래그 핸들러
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (
-      e.target instanceof HTMLElement &&
-      e.target.classList.contains('resize-handle')
-    ) {
-      setIsResizing(true);
-      setResizeDirection(e.target.classList[1]); // nw, ne, sw, se
-    } else {
-      setIsDragging(true);
+    if (!isEditMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (
+        e.target instanceof HTMLElement &&
+        e.target.classList.contains('resize-handle')
+      ) {
+        setIsResizing(true);
+        setResizeDirection(e.target.classList[1]); // nw, ne, sw, se
+      } else {
+        setIsDragging(true);
+      }
+      setDragStart({ x: e.clientX, y: e.clientY });
     }
-    setDragStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging && !isResizing) return;
+    e.preventDefault();
+    e.stopPropagation();
 
     if (isDragging) {
       const { x: snappedX, y: snappedY } = snapWidgetPosition(
@@ -253,7 +289,6 @@ export default function WidgetShell({
         })
       );
     }
-
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
@@ -263,8 +298,19 @@ export default function WidgetShell({
     setResizeDirection(null);
   };
 
+  // 더블클릭 핸들러 추가
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (widget.innerWidget.type === 'text') {
+      dispatch(setEditModeWidgets(widget.id));
+      dispatch(setSelectedWidget(null));
+    }
+  };
+
   // 키보드 삭제 이벤트
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (isEditMode) return;
     if (isSelected && (e.key === 'Delete' || e.key === 'Backspace')) {
       dispatch(deleteWidget(widget.id));
     }
@@ -289,16 +335,33 @@ export default function WidgetShell({
         transform: `scale(${scale})`,
         transformOrigin: '0 0',
         backgroundColor: isSelected ? 'white' : 'white',
+        // border: `2px solid ${
+        //   isSelected ? ' #BBDEFB' : isArrowMode ? '#F1F5F9' : '#e0e0e0'
+        // }`,
+        // outline: `${isSelected ? '2px solid #BBDEFB' : 'none'}`,
         border: `2px solid ${
-          isSelected ? ' #BBDEFB' : isArrowMode ? '#F1F5F9' : '#e0e0e0'
+          isEditMode
+            ? 'black'
+            : isSelected
+            ? '#BBDEFB'
+            : isArrowMode
+            ? '#F1F5F9'
+            : '#e0e0e0'
         }`,
-        outline: `${isSelected ? '2px solid #BBDEFB' : 'none'}`,
+        outline: `${
+          isEditMode
+            ? '2px solid black'
+            : isSelected
+            ? '2px solid #BBDEFB'
+            : 'none'
+        }`,
         outlineOffset: '0px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
         // overflow: 'hidden',
       }}
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
     >
       {renderInnerWidget()}
       {isSelected && (

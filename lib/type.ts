@@ -64,6 +64,8 @@ export interface TextWidget extends WidgetProps {
   width?: number;
   height?: number;
   draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 
 export enum RelationshipType {
@@ -94,8 +96,10 @@ export interface SectionWidget extends WidgetProps {
   width: number;
   height: number;
   fill: string;
-  draggable: boolean;
   memberIds: string[]; // 섹션에 포함된 객체들의 ID 배열
+  draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 
 export interface ImageEmbedWidget extends WidgetProps {
@@ -106,6 +110,8 @@ export interface ImageEmbedWidget extends WidgetProps {
   width?: number;
   height?: number;
   draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 export interface PDFEmbedWidget extends WidgetProps {
   type: 'pdf';
@@ -115,6 +121,8 @@ export interface PDFEmbedWidget extends WidgetProps {
   height?: number;
   src: string; // PDF 파일의 URL 또는 데이터 URL
   draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 
 export interface IframeEmbedWidget extends WidgetProps {
@@ -125,6 +133,8 @@ export interface IframeEmbedWidget extends WidgetProps {
   height?: number;
   src: string;
   draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 
 export interface BoardWidget extends WidgetProps {
@@ -135,6 +145,8 @@ export interface BoardWidget extends WidgetProps {
   height: number;
   titleBlock: string;
   draggable: boolean;
+  editable: boolean;
+  resizeable: boolean;
 }
 
 // 타입 가드 함수

@@ -3,12 +3,14 @@ import { AllWidgetTypes, ShellWidgetProps, TextWidget } from '@/lib/type';
 
 interface WhiteboardState {
   widgets: ShellWidgetProps<AllWidgetTypes>[];
-  selectedWidget: string | null;
+  selectedWidget: string | string[] | null;
+  editModeWidgets: string | string[] | null;
 }
 
 const initialState: WhiteboardState = {
   widgets: [],
   selectedWidget: null,
+  editModeWidgets: null,
 };
 
 const whiteboardSlice = createSlice({
@@ -36,9 +38,17 @@ const whiteboardSlice = createSlice({
     setSelectedWidget: (state, action: PayloadAction<string | null>) => {
       state.selectedWidget = action.payload;
     },
+    setEditModeWidgets: (state, action: PayloadAction<string | null>) => {
+      state.editModeWidgets = action.payload;
+    },
   },
 });
 
-export const { addWidget, updateWidget, deleteWidget, setSelectedWidget } =
-  whiteboardSlice.actions;
+export const {
+  addWidget,
+  updateWidget,
+  deleteWidget,
+  setSelectedWidget,
+  setEditModeWidgets,
+} = whiteboardSlice.actions;
 export default whiteboardSlice.reducer;

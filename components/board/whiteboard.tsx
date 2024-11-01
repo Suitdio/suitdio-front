@@ -18,6 +18,7 @@ import {
   addWidget,
   updateWidget,
   setSelectedWidget,
+  setEditModeWidgets,
 } from '@/lib/redux/features/whiteboardSlice';
 import { ShellWidgetProps, AllWidgetTypes, AllWidgetType } from '@/lib/type';
 import '@blocknote/core/fonts/inter.css';
@@ -38,11 +39,8 @@ export default function Whiteboard() {
   const widgets = useSelector(
     (state: RootState) => state.whiteboard.widgets
   ) as ShellWidgetProps<AllWidgetTypes>[];
-  const selectedWidget = useSelector(
-    (state: RootState) => state.whiteboard.selectedWidget
-  );
-  const dispatch = useDispatch();
 
+  const dispatch = useDispatch();
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [tool, setTool] = useState<'select' | AllWidgetType>('select');
@@ -194,6 +192,8 @@ export default function Whiteboard() {
             draggable: true,
             x: Math.round(x / baseSpacing) * baseSpacing,
             y: Math.round(y / baseSpacing) * baseSpacing,
+            editable: true,
+            resizeable: true,
           };
           break;
 
@@ -209,9 +209,10 @@ export default function Whiteboard() {
             x: Math.round(x / baseSpacing) * baseSpacing,
             y: Math.round(y / baseSpacing) * baseSpacing,
             draggable: true,
+            editable: true,
+            resizeable: true,
           };
           break;
-
         default:
           return;
       }
@@ -235,8 +236,8 @@ export default function Whiteboard() {
       setTool('select');
     } else {
       dispatch(setSelectedWidget(null));
+      dispatch(setEditModeWidgets(null));
     }
-
     redraw();
   };
 
@@ -351,9 +352,11 @@ export default function Whiteboard() {
           <WidgetShell
             key={widget.id}
             widget={widget}
-            isSelected={widget.id === selectedWidget}
             scale={scale}
             offset={offset}
+            draggable={widget.innerWidget.draggable}
+            editable={widget.innerWidget.editable}
+            resizeable={widget.innerWidget.resizeable}
           />
         ))}
       </div>
