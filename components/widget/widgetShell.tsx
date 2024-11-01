@@ -29,82 +29,78 @@ const getHandleStyle = (position: string): React.CSSProperties => {
   };
 
   switch (position) {
-    // 모서리 핸들
+    // 모서리 핸들 - 더 넓은 클릭 영역
     case 'nw':
       return {
         ...baseStyle,
-        top: '-4px',
-        left: '-4px',
-        width: '8px',
-        height: '8px',
+        top: '-8px',
+        left: '-8px',
+        width: '16px',
+        height: '16px',
         cursor: 'nw-resize',
       };
     case 'ne':
       return {
         ...baseStyle,
-        top: '-4px',
-        right: '-4px',
-        width: '8px',
-        height: '8px',
+        top: '-8px',
+        right: '-8px',
+        width: '16px',
+        height: '16px',
         cursor: 'ne-resize',
       };
     case 'sw':
       return {
         ...baseStyle,
-        bottom: '-4px',
-        left: '-4px',
-        width: '8px',
-        height: '8px',
+        bottom: '-8px',
+        left: '-8px',
+        width: '16px',
+        height: '16px',
         cursor: 'sw-resize',
       };
     case 'se':
       return {
         ...baseStyle,
-        bottom: '-4px',
-        right: '-4px',
-        width: '8px',
-        height: '8px',
+        bottom: '-8px',
+        right: '-8px',
+        width: '16px',
+        height: '16px',
         cursor: 'se-resize',
       };
-    // 면 핸들
+    // 면 핸들 - 전체 면적으로 확장
     case 'n':
       return {
         ...baseStyle,
-        top: '-2px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '20%',
-        height: '4px',
+        top: '-4px',
+        left: '16px', // 모서리 핸들을 피해서 시작
+        right: '16px', // 모서리 핸들을 피해서 끝
+        height: '8px',
         cursor: 'n-resize',
       };
     case 's':
       return {
         ...baseStyle,
-        bottom: '-2px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '20%',
-        height: '4px',
+        bottom: '-4px',
+        left: '16px',
+        right: '16px',
+        height: '8px',
         cursor: 's-resize',
       };
     case 'w':
       return {
         ...baseStyle,
-        left: '-2px',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: '4px',
-        height: '20%',
+        left: '-4px',
+        top: '16px',
+        bottom: '16px',
+        width: '8px',
         cursor: 'w-resize',
       };
     case 'e':
       return {
         ...baseStyle,
-        right: '-2px',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: '4px',
-        height: '20%',
+        right: '-4px',
+        top: '16px',
+        bottom: '16px',
+        width: '8px',
         cursor: 'e-resize',
       };
     default:
@@ -196,7 +192,8 @@ export default function WidgetShell({
         dragStart,
         { x: e.clientX, y: e.clientY },
         widget,
-        scale
+        scale,
+        isNodeWidget ? 8 : 0
       );
 
       dispatch(
@@ -234,7 +231,7 @@ export default function WidgetShell({
         position: 'absolute',
         zIndex: 1,
         // padding: `${isNodeWidget ? 'none' : '2px'}`,
-        margin: `${isNodeWidget ? '4px' : 'none'}`,
+        margin: isNodeWidget ? '4px ' : '0',
         left: `${(widget.x + offset.x) * scale}px`, // offset을 더한 후 scale 적용
         top: `${(widget.y + offset.y) * scale}px`, // offset을 더한 후 scale 적용
         width: `${widget.width}px`,

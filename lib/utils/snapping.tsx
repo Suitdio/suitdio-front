@@ -72,7 +72,8 @@ export const snapWidgetResize = (
   startPos: { x: number; y: number },
   newPos: { x: number; y: number },
   currentWidget: { x: number; y: number; width: number; height: number },
-  scale: number
+  scale: number,
+  margin: number = 8
 ) => {
   const dx = (newPos.x - startPos.x) / scale;
   const dy = (newPos.y - startPos.y) / scale;
@@ -84,22 +85,26 @@ export const snapWidgetResize = (
 
   switch (direction) {
     case 'se':
-      newWidth = snap(currentWidget.width + dx);
-      newHeight = snap(currentWidget.height + dy);
+    case 'e':
+    case 's':
+      newWidth = snap(currentWidget.width + dx) - margin;
+      newHeight = snap(currentWidget.height + dy) - margin;
       break;
     case 'sw':
-      newWidth = snap(currentWidget.width - dx);
-      newHeight = snap(currentWidget.height + dy);
+      newWidth = snap(currentWidget.width - dx) - margin;
+      newHeight = snap(currentWidget.height + dy) - margin;
       newX = snap(currentWidget.x + dx);
       break;
     case 'ne':
-      newWidth = snap(currentWidget.width + dx);
-      newHeight = snap(currentWidget.height - dy);
+    case 'n':
+      newWidth = snap(currentWidget.width + dx) - margin;
+      newHeight = snap(currentWidget.height - dy) - margin;
       newY = snap(currentWidget.y + dy);
       break;
     case 'nw':
-      newWidth = snap(currentWidget.width - dx);
-      newHeight = snap(currentWidget.height - dy);
+    case 'w':
+      newWidth = snap(currentWidget.width - dx) - margin;
+      newHeight = snap(currentWidget.height - dy) - margin;
       newX = snap(currentWidget.x + dx);
       newY = snap(currentWidget.y + dy);
       break;
