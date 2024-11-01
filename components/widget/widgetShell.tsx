@@ -240,7 +240,7 @@ export default function WidgetShell({
         return (
           <WidgetText
             {...widget.innerWidget}
-            editable={isEditMode}
+            editable={editable ? isEditMode : false}
             autoFocus={isEditMode}
             onHeightChange={handleHeightChange}
           />
@@ -255,12 +255,13 @@ export default function WidgetShell({
 
   // 드래그 핸들러
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isEditMode) {
+    if (!isEditMode && draggable) {
       e.preventDefault();
       e.stopPropagation();
       if (
         e.target instanceof HTMLElement &&
-        e.target.classList.contains('resize-handle')
+        e.target.classList.contains('resize-handle') &&
+        resizeable
       ) {
         setIsResizing(true);
         setResizeDirection(e.target.classList[1]); // nw, ne, sw, se
