@@ -267,6 +267,7 @@ export default function Whiteboard() {
     const delta = e.deltaY;
     const newScale = Math.min(Math.max(scale - delta * 0.001, 0.1), 5);
     setScale(newScale);
+    console.log(scale);
   };
 
   const handleZoomIn = () => {
@@ -281,6 +282,18 @@ export default function Whiteboard() {
     <div className='flex flex-col h-screen'>
       {/* 툴바 */}
       <div className='flex justify-between items-center p-4 bg-gray-100 border-b'>
+        <div className='flex space-x-2'>
+          <Button variant='outline' size='icon' onClick={handleZoomOut}>
+            <ZoomOut className='h-4 w-4' />
+            <span className='sr-only'>Zoom out</span>
+          </Button>
+          <Button variant='outline' size='icon' onClick={handleZoomIn}>
+            <ZoomIn className='h-4 w-4' />
+            <span className='sr-only'>Zoom in</span>
+          </Button>
+        </div>
+      </div>
+      <div className='left-1/2 fixed bottom-8 border -translate-x-1/2 border-muted rounded-lg p-2 bg-background z-50 shadow-md h-11'>
         <div className='flex space-x-2'>
           <Button
             variant={tool === 'select' ? 'default' : 'outline'}
@@ -323,17 +336,8 @@ export default function Whiteboard() {
             <span className='sr-only'>Text tool</span>
           </Button>
         </div>
-        <div className='flex space-x-2'>
-          <Button variant='outline' size='icon' onClick={handleZoomOut}>
-            <ZoomOut className='h-4 w-4' />
-            <span className='sr-only'>Zoom out</span>
-          </Button>
-          <Button variant='outline' size='icon' onClick={handleZoomIn}>
-            <ZoomIn className='h-4 w-4' />
-            <span className='sr-only'>Zoom in</span>
-          </Button>
-        </div>
       </div>
+
       <div ref={containerRef} className='flex-grow overflow-hidden relative'>
         <canvas
           ref={canvasRef}
