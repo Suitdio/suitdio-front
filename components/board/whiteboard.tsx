@@ -337,38 +337,38 @@ export default function Whiteboard() {
     setIsPanning(false);
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+  //   e.preventDefault();
+  //   e.stopPropagation();
 
-    // Command(Mac) 또는 Ctrl(Windows) 키가 눌려있을 때만 줌 동작
-    if (e.metaKey || e.ctrlKey) {
-      const delta = e.deltaY;
-      const zoomFactor = Math.exp(-delta * ZOOM_SPEED);
-      const newScale = Math.min(Math.max(scale * zoomFactor, 0.1), 5);
+  //   // Command(Mac) 또는 Ctrl(Windows) 키가 눌려있을 때만 줌 동작
+  //   if (e.metaKey || e.ctrlKey) {
+  //     const delta = e.deltaY;
+  //     const zoomFactor = Math.exp(-delta * ZOOM_SPEED);
+  //     const newScale = Math.min(Math.max(scale * zoomFactor, 0.1), 5);
 
-      // 마우스 포인터 위치 (뷰포트 좌표)
-      const mouseX = e.clientX;
-      const mouseY = e.clientY;
+  //     // 마우스 포인터 위치 (뷰포트 좌표)
+  //     const mouseX = e.clientX;
+  //     const mouseY = e.clientY;
 
-      // 컨테이너의 위치 정보
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
+  //     // 컨테이너의 위치 정보
+  //     const rect = containerRef.current?.getBoundingClientRect();
+  //     if (!rect) return;
 
-      // 마우스 포인터의 캔버스상 좌표
-      const pointX = (mouseX - rect.left) / scale - offset.x;
-      const pointY = (mouseY - rect.top) / scale - offset.y;
+  //     // 마우스 포인터의 캔버스상 좌표
+  //     const pointX = (mouseX - rect.left) / scale - offset.x;
+  //     const pointY = (mouseY - rect.top) / scale - offset.y;
 
-      // 새로운 오프셋 계산
-      const newOffset = {
-        x: offset.x - pointX * (newScale - scale),
-        y: offset.y - pointY * (newScale - scale),
-      };
+  //     // 새로운 오프셋 계산
+  //     const newOffset = {
+  //       x: offset.x - pointX * (newScale - scale),
+  //       y: offset.y - pointY * (newScale - scale),
+  //     };
 
-      setScale(newScale);
-      setOffset(newOffset);
-    }
-  };
+  //     setScale(newScale);
+  //     setOffset(newOffset);
+  //   }
+  // };
 
   const handleZoomIn = () => {
     setScale((prevScale) => Math.min(prevScale + 0.1, 5));
