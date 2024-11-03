@@ -192,3 +192,6 @@ export const isIframeEmbed = (
 export const isBoard = (widget: WidgetProps): widget is BoardWidget => {
   return widget.type === 'boardLink';
 };
+
+// 호버 상태를 위한 타입 정의
+export type EdgePosition = 'n' | 's' | 'w' | 'e' | null;

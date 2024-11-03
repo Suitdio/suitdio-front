@@ -267,7 +267,7 @@ export default function Whiteboard() {
             editable: true,
             resizeable: true,
             headerBar: true,
-            footerBar: false,
+            footerBar: true,
           };
           break;
 

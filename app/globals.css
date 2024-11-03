@@ -88,3 +88,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.header-bar {
+  @apply h-[52px]  z-[1000] w-full flex justify-between items-center p-2;
+}
+
+.footer-bar {
+  @apply h-[52px] z-[1000] w-full flex justify-between items-center p-2 fixed bottom-0;
+}
