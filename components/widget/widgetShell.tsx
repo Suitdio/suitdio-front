@@ -163,6 +163,7 @@ export default function WidgetShell({
   const [isSelected, setIsSelected] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [hoveredEdge, setHoveredEdge] = useState<EdgePosition>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setIsSelected(selectedWidget === widget.id);
@@ -382,10 +383,11 @@ export default function WidgetShell({
 
   return (
     <div
+      className='widget-shell group'
       style={{
         position: 'absolute',
         zIndex: 1,
-        // padding: `${isNodeWidget ? 'none' : '2px'}`,
+        padding: '4px',
         margin: isNodeWidget ? `${4 * scale}px` : '0',
         left: `${(widget.x + offset.x) * scale}px`, // offset을 더한 후 scale 적용
         top: `${(widget.y + offset.y) * scale}px`, // offset을 더한 후 scale 적용
@@ -417,9 +419,11 @@ export default function WidgetShell({
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {headerBar && (
-        <div className='header-bar'>
+        <div className='transition-opacity duration-200 hover:bg-gray-100 header-bar opacity-0 group-hover:opacity-100'>
           <div className='flex items-center'>
             <Button
               size='icon'
