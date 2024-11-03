@@ -29,6 +29,8 @@ interface WidgetShellProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 
 //resize 핸들 스타일 함수
@@ -170,6 +172,8 @@ export default function WidgetShell({
   draggable,
   editable,
   resizeable,
+  headerBar,
+  footerBar,
 }: WidgetShellProps) {
   const dispatch = useDispatch();
   const [isDragging, setIsDragging] = useState(false);

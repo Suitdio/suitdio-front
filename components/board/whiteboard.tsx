@@ -33,6 +33,7 @@ let basePointSize = 4; // 기본 점 크기
 
 export const FONT_SIZE = 16;
 export const RESIZE_HANDLE_SIZE = 8;
+export const ZOOM_SPEED = 0.001; // 줌 속도 조절 상수
 
 export default function Whiteboard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -47,6 +48,14 @@ export default function Whiteboard() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
+  const [isZooming, setIsZooming] = useState(false);
+
+  // Screen 좌표 기준의 마우스 위치를 저장
+  const [mousePosition, setMousePosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   const isArrowMode = useSelector(
     (state: RootState) => state.arrow.isArrowMode
   );
@@ -140,6 +149,69 @@ export default function Whiteboard() {
     dispatch(setSelectedWidget(null));
   }, [isArrowMode]);
 
+  // window 좌표 기준의 마우스 위치 기준으로 줌인, 줌아웃 구현
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isZooming) {
+        setMousePosition({ x: e.clientX, y: e.clientY });
+      }
+    };
+
+    const handleGlobalWheel = (e: WheelEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+
+        // 줌 시작 시 상태 설정
+        if (!isZooming) {
+          setIsZooming(true);
+          setMousePosition({ x: e.clientX, y: e.clientY });
+        }
+
+        const delta = e.deltaY;
+        const zoomFactor = Math.exp(-delta * ZOOM_SPEED);
+        const newScale = Math.min(Math.max(scale * zoomFactor, 0.1), 5);
+
+        if (mousePosition) {
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+
+          // Screen 좌표에서 컨테이너의 상대적 위치 계산
+          const pointX = (mousePosition.x - rect.left) / scale;
+          const pointY = (mousePosition.y - rect.top) / scale;
+
+          // 새로운 오프셋 계산
+          const newOffset = {
+            x: offset.x + (pointX * (scale - newScale)) / newScale,
+            y: offset.y + (pointY * (scale - newScale)) / newScale,
+          };
+
+          setScale(newScale);
+          setOffset(newOffset);
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Meta' || e.key === 'Control') {
+        setIsZooming(false);
+        setMousePosition(null);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('wheel', handleGlobalWheel, { passive: false });
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('wheel', handleGlobalWheel);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [scale, offset, isZooming, mousePosition]);
+
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -189,11 +261,13 @@ export default function Whiteboard() {
               },
             ]),
             fontSize: FONT_SIZE,
-            draggable: true,
             x: Math.round(x / baseSpacing) * baseSpacing,
             y: Math.round(y / baseSpacing) * baseSpacing,
+            draggable: true,
             editable: true,
             resizeable: true,
+            headerBar: true,
+            footerBar: false,
           };
           break;
 
@@ -211,6 +285,8 @@ export default function Whiteboard() {
             draggable: true,
             editable: true,
             resizeable: true,
+            headerBar: false,
+            footerBar: false,
           };
           break;
         default:
@@ -264,10 +340,34 @@ export default function Whiteboard() {
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    const delta = e.deltaY;
-    const newScale = Math.min(Math.max(scale - delta * 0.001, 0.1), 5);
-    setScale(newScale);
-    console.log(scale);
+
+    // Command(Mac) 또는 Ctrl(Windows) 키가 눌려있을 때만 줌 동작
+    if (e.metaKey || e.ctrlKey) {
+      const delta = e.deltaY;
+      const zoomFactor = Math.exp(-delta * ZOOM_SPEED);
+      const newScale = Math.min(Math.max(scale * zoomFactor, 0.1), 5);
+
+      // 마우스 포인터 위치 (뷰포트 좌표)
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      // 컨테이너의 위치 정보
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      // 마우스 포인터의 캔버스상 좌표
+      const pointX = (mouseX - rect.left) / scale - offset.x;
+      const pointY = (mouseY - rect.top) / scale - offset.y;
+
+      // 새로운 오프셋 계산
+      const newOffset = {
+        x: offset.x - pointX * (newScale - scale),
+        y: offset.y - pointY * (newScale - scale),
+      };
+
+      setScale(newScale);
+      setOffset(newOffset);
+    }
   };
 
   const handleZoomIn = () => {
@@ -346,7 +446,7 @@ export default function Whiteboard() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onWheel={handleWheel}
+          // onWheel={handleWheel}
           className={`${spacePressed ? 'cursor-grab' : 'cursor-crosshair'} ${
             isPanning ? 'cursor-grabbing' : ''
           }`}
@@ -361,6 +461,8 @@ export default function Whiteboard() {
             draggable={widget.innerWidget.draggable}
             editable={widget.innerWidget.editable}
             resizeable={widget.innerWidget.resizeable}
+            headerBar={widget.innerWidget.headerBar}
+            footerBar={widget.innerWidget.footerBar}
           />
         ))}
       </div>

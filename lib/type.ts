@@ -66,6 +66,8 @@ export interface TextWidget extends WidgetProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 
 export enum RelationshipType {
@@ -100,6 +102,8 @@ export interface SectionWidget extends WidgetProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 
 export interface ImageEmbedWidget extends WidgetProps {
@@ -112,6 +116,8 @@ export interface ImageEmbedWidget extends WidgetProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 export interface PDFEmbedWidget extends WidgetProps {
   type: 'pdf';
@@ -123,6 +129,8 @@ export interface PDFEmbedWidget extends WidgetProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 
 export interface IframeEmbedWidget extends WidgetProps {
@@ -135,6 +143,8 @@ export interface IframeEmbedWidget extends WidgetProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 
 export interface BoardWidget extends WidgetProps {
@@ -147,6 +157,8 @@ export interface BoardWidget extends WidgetProps {
   draggable: boolean;
   editable: boolean;
   resizeable: boolean;
+  headerBar: boolean;
+  footerBar: boolean;
 }
 
 // 타입 가드 함수
