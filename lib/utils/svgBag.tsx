@@ -277,3 +277,55 @@ export const recordSvg = (
     </defs>
   </>
 );
+
+export const sectionSvg = ({
+  isActive,
+  className,
+}: {
+  isActive?: boolean;
+  className?: string;
+}) => (
+  <>
+    <path
+      d='M8 2H3.33333C2.59695 2 2 2.59695 2 3.33333V5.66667M8 2H12.6667C13.403 2 14 2.59695 14 3.33333V12.6667C14 13.403 13.403 14 12.6667 14H3.33333C2.59695 14 2 13.403 2 12.6667V8V5.66667M8 2V4.33333C8 5.06971 7.40305 5.66667 6.66667 5.66667H2'
+      stroke={isActive ? '#14b8a6' : 'currentColor'}
+      strokeWidth='1.33333'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      className={className}
+    />
+  </>
+);
+
+export const boardSvg = (
+  <>
+    <g clipPath='url(#clip0_321_5213)'>
+      <path
+        d='M7.99992 14.6666C11.6818 14.6666 14.6666 11.6818 14.6666 7.99992C14.6666 4.31802 11.6818 1.33325 7.99992 1.33325C4.31802 1.33325 1.33325 4.31802 1.33325 7.99992C1.33325 11.6818 4.31802 14.6666 7.99992 14.6666Z'
+        stroke='black'
+        strokeWidth='1.33333'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <path
+        d='M7.99992 10.6666C9.47268 10.6666 10.6666 9.47268 10.6666 7.99992C10.6666 6.52716 9.47268 5.33325 7.99992 5.33325C6.52716 5.33325 5.33325 6.52716 5.33325 7.99992C5.33325 9.47268 6.52716 10.6666 7.99992 10.6666Z'
+        stroke='black'
+        strokeWidth='1.33333'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <path
+        d='M8 8H8.00667'
+        stroke='black'
+        strokeWidth='1.33333'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </g>
+    <defs>
+      <clipPath id='clip0_321_5213'>
+        <rect width='16' height='16' fill='white' />
+      </clipPath>
+    </defs>
+  </>
+);

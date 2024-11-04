@@ -22,14 +22,31 @@ export interface WidgetProps {
     | 'section'
     | 'mindmap'
     | 'shell'
-    | 'arrow';
+    | 'arrow'
+    | 'brainStorm'
+    | 'search'
+    | 'template'
+    | 'upload'
+    | 'aiSearch'
+    | 'refresh';
   isSelected?: boolean;
 }
 
 // 위젯 타입들을 유니온 타입으로 정의
 export type NodeWidgetType = 'text' | 'image' | 'pdf' | 'url' | 'boardLink';
 export type AreaWidgetType = 'section' | 'mindmap';
-export type AllWidgetType = NodeWidgetType | AreaWidgetType | 'shell' | 'arrow';
+export type AllWidgetType =
+  | NodeWidgetType
+  | AreaWidgetType
+  | 'shell'
+  | 'arrow'
+  | 'brainStorm'
+  | 'mindmap'
+  | 'search'
+  | 'template'
+  | 'upload'
+  | 'aiSearch'
+  | 'refresh';
 
 // 타입 검사를 위한 상수 배열 (런타임에서 사용)
 export const NODE_WIDGET_TYPES = [

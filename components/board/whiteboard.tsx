@@ -10,6 +10,15 @@ import {
   AppWindowMacIcon,
   MoveDownRight,
   X,
+  MousePointer2,
+  MoveRight,
+  File,
+  Search,
+  RefreshCw,
+  Shapes,
+  Disc2,
+  Tornado,
+  Boxes,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDispatch, useSelector } from 'react-redux';
@@ -26,6 +35,11 @@ import '@blocknote/mantine/style.css';
 import WidgetShell from '../widget/widgetShell';
 import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
 import { isArrayBuffer } from 'util/types';
+import SvgIcon from '@/lib/utils/svgIcon';
+import { boardSvg, sectionSvg } from '@/lib/utils/svgBag';
+import { HiSparkles } from 'react-icons/hi';
+import { HiOutlineSparkles } from 'react-icons/hi2';
+import { Separator } from '../ui/separator';
 
 // 기본 그리드 설정
 let baseSpacing = 48; // 기본 간격
@@ -381,7 +395,7 @@ export default function Whiteboard() {
   return (
     <div className='flex flex-col h-screen'>
       {/* 툴바 */}
-      <div className='flex justify-between items-center p-4 bg-gray-100 border-b'>
+      {/* <div className='flex justify-between items-center p-4 bg-gray-100 border-b'>
         <div className='flex space-x-2'>
           <Button variant='outline' size='icon' onClick={handleZoomOut}>
             <ZoomOut className='h-4 w-4' />
@@ -392,19 +406,20 @@ export default function Whiteboard() {
             <span className='sr-only'>Zoom in</span>
           </Button>
         </div>
-      </div>
-      <div className='left-1/2 fixed bottom-8 border -translate-x-1/2 border-muted rounded-lg p-2 bg-background z-50 shadow-md h-11'>
-        <div className='flex space-x-2'>
+      </div> */}
+      <div className='left-1/2 fixed bottom-8 border -translate-x-1/2 border-muted rounded-lg p-1 bg-white z-50 shadow-md h-11'>
+        <div className='flex space-x-2 items-center'>
           <Button
-            variant={tool === 'select' ? 'default' : 'outline'}
+            variant={tool === 'select' ? 'toolSelect' : 'white'}
             size='icon'
             onClick={() => setTool('select')}
           >
-            <Move className='h-4 w-4' />
+            <MousePointer2 className='h-4 w-4' />
             <span className='sr-only'>Select tool</span>
           </Button>
+          <Separator orientation='vertical' className='h-6' />
           <Button
-            variant={tool === 'text' ? 'default' : 'outline'}
+            variant={tool === 'text' ? 'toolSelect' : 'white'}
             size='icon'
             onClick={() => setTool('text')}
           >
@@ -412,27 +427,106 @@ export default function Whiteboard() {
             <span className='sr-only'>Text tool</span>
           </Button>
           <Button
-            variant={tool === 'section' ? 'default' : 'outline'}
+            variant={tool === 'arrow' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('arrow')}
+          >
+            <MoveRight className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'section' ? 'toolSelect' : 'white'}
             size='icon'
             onClick={() => setTool('section')}
+            className='group'
+          >
+            <SvgIcon
+              fill='none'
+              width={16}
+              height={16}
+              className='flex items-center justify-center'
+            >
+              {sectionSvg({
+                isActive: tool === 'section',
+                className: 'group-hover:stroke-teal-500',
+              })}
+            </SvgIcon>
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'boardLink' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('boardLink')}
+          >
+            <Disc2 className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Separator orientation='vertical' className='h-6' />
+          <Button
+            variant={tool === 'brainStorm' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('brainStorm')}
+          >
+            <Tornado className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'mindmap' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('mindmap')}
+          >
+            <Boxes className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'refresh' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('refresh')}
+            disabled
+          >
+            <RefreshCw className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Separator orientation='vertical' className='h-6' />
+          <Button
+            variant={tool === 'search' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('search')}
+          >
+            <Search className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'upload' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('upload')}
+          >
+            <File className='h-4 w-4' />
+            <span className='sr-only'>Text tool</span>
+          </Button>
+          <Button
+            variant={tool === 'url' ? 'toolSelect' : 'white'}
+            size='icon'
+            onClick={() => setTool('url')}
           >
             <AppWindowMacIcon className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
           </Button>
           <Button
-            variant={tool === 'arrow' ? 'default' : 'outline'}
+            variant={tool === 'template' ? 'toolSelect' : 'white'}
             size='icon'
-            onClick={() => dispatch(setIsArrowMode(true))}
+            onClick={() => setTool('template')}
           >
-            <MoveDownRight className='h-4 w-4' />
+            <Shapes className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
           </Button>
+          <Separator orientation='vertical' className='h-6' />
           <Button
-            variant={tool === 'arrow' ? 'default' : 'outline'}
+            variant={tool === 'aiSearch' ? 'toolSelect' : 'white'}
             size='icon'
-            onClick={() => dispatch(setIsArrowMode(false))}
+            onClick={() => setTool('aiSearch')}
           >
-            <X className='h-4 w-4' />
+            <HiOutlineSparkles className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
           </Button>
         </div>
