@@ -2,14 +2,8 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
-  PlusCircle,
-  Move,
   Type,
-  ZoomIn,
-  ZoomOut,
   AppWindowMacIcon,
-  MoveDownRight,
-  X,
   MousePointer2,
   MoveRight,
   File,
@@ -25,7 +19,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/redux/store';
 import {
   addWidget,
-  updateWidget,
   setSelectedWidget,
   setEditModeWidgets,
 } from '@/lib/redux/features/whiteboardSlice';
@@ -33,11 +26,8 @@ import { ShellWidgetProps, AllWidgetTypes, AllWidgetType } from '@/lib/type';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
 import WidgetShell from '../widget/widgetShell';
-import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
-import { isArrayBuffer } from 'util/types';
 import SvgIcon from '@/lib/utils/svgIcon';
-import { boardSvg, sectionSvg } from '@/lib/utils/svgBag';
-import { HiSparkles } from 'react-icons/hi';
+import { sectionSvg } from '@/lib/utils/svgBag';
 import { HiOutlineSparkles } from 'react-icons/hi2';
 import { Separator } from '../ui/separator';
 
