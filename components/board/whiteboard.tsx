@@ -245,90 +245,103 @@ export default function Whiteboard() {
     redraw();
   }, [scale, offset, redraw]);
 
-  const handleFileUpload = () => {
+  const processFile = (file: File, dataUrl: string) => {
+    const centerX = (window.innerWidth / 2 - offset.x * scale) / scale;
+    const centerY = (window.innerHeight / 2 - offset.y * scale) / scale;
+    let innerWidget: AllWidgetTypes;
+
+    if (file.type.startsWith('image/')) {
+      innerWidget = {
+        id: Date.now().toString(),
+        type: 'image',
+        src: dataUrl,
+        x: Math.round(centerX / baseSpacing) * baseSpacing,
+        y: Math.round(centerY / baseSpacing) * baseSpacing,
+        width: 472,
+        name: file.name,
+        draggable: true,
+        editable: true,
+        resizeable: true,
+        headerBar: true,
+        footerBar: false,
+      };
+    } else if (file.type === 'application/pdf') {
+      innerWidget = {
+        id: Date.now().toString(),
+        type: 'pdf',
+        src: dataUrl,
+        x: Math.round(centerX / baseSpacing) * baseSpacing,
+        y: Math.round(centerY / baseSpacing) * baseSpacing,
+        height: 750,
+        draggable: true,
+        editable: true,
+        resizeable: true,
+        headerBar: true,
+        footerBar: false,
+      };
+    } else if (
+      file.type === 'text/markdown' ||
+      file.type === 'text/x-markdown'
+    ) {
+      innerWidget = {
+        id: Date.now().toString(),
+        type: 'text',
+        src: dataUrl,
+        fontSize: FONT_SIZE,
+        x: Math.round(centerX / baseSpacing) * baseSpacing,
+        y: Math.round(centerY / baseSpacing) * baseSpacing,
+        draggable: true,
+        editable: true,
+        resizeable: true,
+        headerBar: true,
+        footerBar: false,
+      };
+    } else {
+      console.warn(`지원되지 않는 파일 형식: ${file.type}`);
+      return;
+    }
+
+    const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+      id: Date.now().toString(),
+      type: 'shell',
+      x: Math.round(centerX / baseSpacing) * baseSpacing,
+      y: Math.round(centerY / baseSpacing) * baseSpacing,
+      width: 472,
+      height: 184,
+      resizable: true,
+      editable: true,
+      draggable: true,
+      innerWidget,
+    };
+
+    dispatch(addWidget(newWidget));
+    dispatch(setSelectedWidget(newWidget.id));
+    setTool('select');
+  };
+
+  const handleFileUpload = (dragFile?: File) => {
+    const handleFile = (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          processFile(file, event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+
+    if (dragFile) {
+      handleFile(dragFile);
+      return;
+    }
+
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = 'image/* , application/pdf, text/markdown';
+    fileInput.accept = 'image/*, application/pdf, text/markdown';
     fileInput.onchange = (e: Event) => {
       const target = e.target as HTMLInputElement;
-      if (target.files && target.files[0]) {
-        const file = target.files[0];
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target) {
-            // 화면 중앙 좌표 계산
-            const centerX = (window.innerWidth / 2 - offset.x * scale) / scale;
-            const centerY = (window.innerHeight / 2 - offset.y * scale) / scale;
-            let innerWidget: AllWidgetTypes;
-            if (file.type.startsWith('image/')) {
-              innerWidget = {
-                id: Date.now().toString(),
-                type: 'image',
-                src: event.target.result as string,
-                x: Math.round(centerX / baseSpacing) * baseSpacing,
-                y: Math.round(centerY / baseSpacing) * baseSpacing,
-                width: 472,
-                name: file.name,
-                draggable: true,
-                editable: true,
-                resizeable: true,
-                headerBar: true,
-                footerBar: false,
-              };
-            } else if (file.type === 'application/pdf') {
-              innerWidget = {
-                id: Date.now().toString(),
-                type: 'pdf',
-                src: event.target.result as string,
-                x: Math.round(centerX / baseSpacing) * baseSpacing,
-                y: Math.round(centerY / baseSpacing) * baseSpacing,
-                height: 750,
-                draggable: true,
-                editable: true,
-                resizeable: true,
-                headerBar: true,
-                footerBar: false,
-              };
-            } else if (
-              file.type === 'text/markdown' ||
-              file.type === 'text/x-markdown'
-            ) {
-              innerWidget = {
-                id: Date.now().toString(),
-                type: 'text',
-                src: event.target.result as string,
-                fontSize: FONT_SIZE,
-                x: Math.round(centerX / baseSpacing) * baseSpacing,
-                y: Math.round(centerY / baseSpacing) * baseSpacing,
-                draggable: true,
-                editable: true,
-                resizeable: true,
-                headerBar: true,
-                footerBar: false,
-              };
-            } else {
-              console.warn(`지원되지 않는 파일 형식: ${file.type}`);
-              return;
-            }
-            // 공통 shell 위젯 생성
-            const newWidget: ShellWidgetProps<AllWidgetTypes> = {
-              id: Date.now().toString(),
-              type: 'shell',
-              x: Math.round(centerX / baseSpacing) * baseSpacing,
-              y: Math.round(centerY / baseSpacing) * baseSpacing,
-              width: 472,
-              height: 184,
-              resizable: true,
-              editable: true,
-              draggable: true,
-              innerWidget,
-            };
-            dispatch(addWidget(newWidget));
-            dispatch(setSelectedWidget(newWidget.id));
-            setTool('select');
-          }
-        };
-        reader.readAsDataURL(file);
+      if (target.files?.[0]) {
+        handleFile(target.files[0]);
       }
     };
     fileInput.click();
@@ -529,6 +542,38 @@ export default function Whiteboard() {
 
   const handleZoomOut = () => {
     setScale((prevScale) => Math.max(prevScale - 0.1, 0.1));
+  };
+
+  // 드래그 앤 드롭 이벤트 리스너
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('dragover', handleDragOver);
+      container.addEventListener('drop', handleDrop);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('dragover', handleDragOver);
+        container.removeEventListener('drop', handleDrop);
+      }
+    };
+  }, []);
+
+  // 드래그 오버 핸들러
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // 드롭 핸들러
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer?.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
   };
 
   return (
