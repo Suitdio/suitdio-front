@@ -73,8 +73,8 @@ export interface ShellWidgetProps<T extends AllWidgetTypes>
 
 export interface TextWidget extends WidgetProps {
   type: 'text';
-  x: number; // 추가
-  y: number; // 추가
+  x?: number; // 추가
+  y?: number; // 추가
   text?: string;
   mkText?: string;
   fontSize: number;
@@ -144,8 +144,8 @@ export interface PDFEmbedWidget extends WidgetProps {
 
 export interface IframeEmbedWidget extends WidgetProps {
   type: 'url';
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   width?: number;
   height?: number;
   src: string;

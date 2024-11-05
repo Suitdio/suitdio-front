@@ -13,6 +13,7 @@ import {
   Disc2,
   Tornado,
   Boxes,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDispatch, useSelector } from 'react-redux';
@@ -27,6 +28,7 @@ import {
   AllWidgetTypes,
   AllWidgetType,
   TextWidget,
+  IframeEmbedWidget,
 } from '@/lib/type';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
@@ -37,6 +39,9 @@ import { HiOutlineSparkles } from 'react-icons/hi2';
 import { Separator } from '../ui/separator';
 import { createTextNode } from '@/lib/utils/textNodeCreator';
 import BrainstormInput from '../widget/widgetBrainstorm';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 // 기본 그리드 설정
 let baseSpacing = 48; // 기본 간격
 let basePointSize = 4; // 기본 점 크기
@@ -60,6 +65,7 @@ export default function Whiteboard() {
   const [spacePressed, setSpacePressed] = useState(false);
   const [isZooming, setIsZooming] = useState(false);
   const [isBrainstormActive, setIsBrainstormActive] = useState(false); // 브레인스톰 상태 추가
+  const [url, setUrl] = useState('');
   const selectedWidget = useSelector(
     (state: RootState) => state.whiteboard.selectedWidget
   );
@@ -380,8 +386,8 @@ export default function Whiteboard() {
               },
             ]),
             fontSize: FONT_SIZE,
-            x: Math.round(x / baseSpacing) * baseSpacing,
-            y: Math.round(y / baseSpacing) * baseSpacing,
+            // x: Math.round(x / baseSpacing) * baseSpacing,
+            // y: Math.round(y / baseSpacing) * baseSpacing,
             draggable: true,
             editable: true,
             resizeable: true,
@@ -452,8 +458,6 @@ export default function Whiteboard() {
   const handleMouseUp = () => {
     setIsPanning(false);
   };
-
-  // const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
   //   e.preventDefault();
   //   e.stopPropagation();
 
@@ -522,8 +526,8 @@ export default function Whiteboard() {
     const newWidget: ShellWidgetProps<AllWidgetTypes> = {
       id: Date.now().toString(),
       type: 'shell',
-      x: newNode.x,
-      y: newNode.y,
+      x: newNode.x ?? 0,
+      y: newNode.y ?? 0,
       width: 200,
       height: 500,
       resizable: true,
@@ -574,6 +578,115 @@ export default function Whiteboard() {
     if (e.dataTransfer?.files[0]) {
       handleFileUpload(e.dataTransfer.files[0]);
     }
+  };
+
+  // URL 추가 핸들러
+  const handleUrlAdd = () => {
+    if (url && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const centerPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
+
+      // URL 유효성 검사
+      const isUrl = /^(http|https):\/\/[^ "]+$/.test(url);
+      if (isUrl) {
+        addUrlWidgets(centerPosition, url);
+        setUrl('https://'); // 입력 필드 초기화
+      } else {
+        addTextWidgets(centerPosition, url);
+      }
+      setTool('select');
+    }
+  };
+
+  // 클립보드 붙여넣기 및 마우스 이동 이벤트 리스너
+  useEffect(() => {
+    if (tool !== 'url') {
+      const handlePaste = (e: ClipboardEvent) => {
+        e.preventDefault();
+        const pastedText = e.clipboardData?.getData('text');
+
+        if (pastedText && mousePosition) {
+          const isUrl = /^(http|https):\/\/[^ "]+$/.test(pastedText);
+          isUrl
+            ? addUrlWidgets(mousePosition, pastedText)
+            : addTextWidgets(mousePosition, pastedText);
+        }
+      };
+
+      const handleMouseMove = (e: MouseEvent) => {
+        setMousePosition({ x: e.clientX, y: e.clientY });
+      };
+
+      document.addEventListener('paste', handlePaste);
+      document.addEventListener('mousemove', handleMouseMove);
+
+      return () => {
+        document.removeEventListener('paste', handlePaste);
+        document.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [widgets, mousePosition]);
+
+  const addTextWidgets = (mousePos: { x: number; y: number }, text: string) => {
+    const x = (mousePos.x - offset.x * scale) / scale;
+    const y = (mousePos.y - offset.y * scale) / scale;
+
+    const innerWidget: TextWidget = {
+      id: Date.now().toString(),
+      type: 'text',
+      mkText: text,
+      fontSize: FONT_SIZE,
+      draggable: true,
+      editable: true,
+      resizeable: true,
+      headerBar: true,
+      footerBar: false,
+    };
+    const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+      id: Date.now().toString(),
+      type: 'shell',
+      width: 472,
+      height: 184,
+      x,
+      y,
+      resizable: true,
+      editable: true,
+      draggable: true,
+      innerWidget,
+    };
+    dispatch(addWidget(newWidget));
+  };
+
+  const addUrlWidgets = (mousePos: { x: number; y: number }, text: string) => {
+    const x = (mousePos.x - offset.x * scale) / scale;
+    const y = (mousePos.y - offset.y * scale) / scale;
+
+    const innerWidget: IframeEmbedWidget = {
+      id: Date.now().toString(),
+      type: 'url',
+      src: text,
+      draggable: true,
+      editable: true,
+      resizeable: true,
+      headerBar: true,
+      footerBar: false,
+    };
+    const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+      id: Date.now().toString(),
+      type: 'shell',
+      width: 472,
+      height: 184,
+      x,
+      y,
+      resizable: true,
+      editable: true,
+      draggable: true,
+      innerWidget,
+    };
+    dispatch(addWidget(newWidget));
   };
 
   return (
@@ -691,14 +804,55 @@ export default function Whiteboard() {
             <File className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
           </Button>
-          <Button
+          {/* <Button
             variant={tool === 'url' ? 'toolSelect' : 'white'}
             size='icon'
             onClick={() => setTool('url')}
           >
             <AppWindowMacIcon className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
-          </Button>
+          </Button> */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={tool === 'url' ? 'toolSelect' : 'white'}
+                size='icon'
+                onClick={() => setTool('url')}
+              >
+                <AppWindowMacIcon className='h-4 w-4' />
+                <span className='sr-only'>Text tool</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className='w-120 bg-white'>
+              <div className='grid gap-4'>
+                <div className='space-y-2'>
+                  <h4 className='font-medium leading-none'>Input URL</h4>
+                  <p className='text-sm text-muted-foreground'>
+                    You can input the URL of the page you want to embed.
+                  </p>
+                </div>
+                <div className='grid gap-2'>
+                  <div className='grid grid-cols-3 items-center gap-4'>
+                    <Label htmlFor='url'>URL</Label>
+                    <Input
+                      id='url'
+                      defaultValue='https://'
+                      className='col-span-2 h-8'
+                      onChange={(e) => setUrl(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    variant='outline'
+                    size='icon'
+                    className='w-full'
+                    onClick={handleUrlAdd}
+                  >
+                    <Plus className='h-4 w-4' />
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant={tool === 'template' ? 'toolSelect' : 'white'}
             size='icon'

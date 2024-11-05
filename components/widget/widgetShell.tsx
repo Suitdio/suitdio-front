@@ -39,6 +39,7 @@ import { FaPause } from 'react-icons/fa';
 import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
 import WidgetImage from './widgetImage';
 import WidgetPdf from './widgetPdf';
+import WidgetUrl from './widgetUrl';
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
@@ -318,6 +319,13 @@ export default function WidgetShell({
             onHeightChange={handleHeightChange}
           />
         );
+      case 'url':
+        return (
+          <WidgetUrl
+            {...widget.innerWidget}
+            onHeightChange={handleHeightChange}
+          />
+        );
       default:
         return null;
     }
@@ -449,7 +457,7 @@ export default function WidgetShell({
         }`,
         outlineOffset: '0px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
-        // overflow: 'hidden',
+        overflow: `${widget.innerWidget.type === 'url' ? 'hidden' : 'visible'}`,
       }}
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
