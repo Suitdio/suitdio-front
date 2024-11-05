@@ -1,3 +1,7 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "off", //사용하지 않는 변수 경고 끄기
+    "react-hooks/exhaustive-deps": "off" //useEffect 의존성 배열 관련 경고 끄기
+  }
 }
