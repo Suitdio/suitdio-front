@@ -16,7 +16,6 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
 }) => {
   const [inputText, setInputText] = useState("");
   const [isSelected, setIsSelected] = useState(false);
-  const [isComposing, setIsComposing] = useState(false);
   const isProcessing = useRef(false);
 
   // Shift+T 단축키 핸들러 수정
@@ -33,15 +32,6 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setIsActive, setTool]);
 
-  // 한글 입력 관련 핸들러 추가
-  const handleCompositionStart = () => {
-    setIsComposing(true);
-  };
-
-  const handleCompositionEnd = () => {
-    setIsComposing(false);
-  };
-
   // 텍스트 입력 처리
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -50,10 +40,9 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
     []
   );
 
-  // Ctrl/Cmd + Enter 처리
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isComposing) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         // 중복 처리 방지
         if (isProcessing.current) return;
@@ -70,7 +59,7 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
         }, 100);
       }
     },
-    [inputText, onCreateNode, isComposing]
+    [inputText, onCreateNode]
   );
 
   // textarea에 focus 이벤트 핸들러 추가
@@ -94,8 +83,6 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
         value={inputText}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        onCompositionStart={handleCompositionStart}
-        onCompositionEnd={handleCompositionEnd}
         onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={`아이디어를 입력하세요!
