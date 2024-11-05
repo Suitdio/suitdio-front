@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { AllWidgetType } from "@/lib/type";
 
 interface BrainstormInputProps {
@@ -16,6 +16,8 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
 }) => {
   const [inputText, setInputText] = useState("");
   const [isSelected, setIsSelected] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  const isProcessing = useRef(false);
 
   // Shift+T 단축키 핸들러 수정
   useEffect(() => {
@@ -31,6 +33,15 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setIsActive, setTool]);
 
+  // 한글 입력 관련 핸들러 추가
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = () => {
+    setIsComposing(false);
+  };
+
   // 텍스트 입력 처리
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -42,15 +53,24 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
   // Ctrl/Cmd + Enter 처리
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isComposing) {
         e.preventDefault();
+        // 중복 처리 방지
+        if (isProcessing.current) return;
+        isProcessing.current = true;
+
         if (inputText.trim()) {
           onCreateNode(inputText);
           setInputText("");
         }
+
+        // 처리 완료 후 플래그 리셋
+        setTimeout(() => {
+          isProcessing.current = false;
+        }, 100);
       }
     },
-    [inputText, onCreateNode]
+    [inputText, onCreateNode, isComposing]
   );
 
   // textarea에 focus 이벤트 핸들러 추가
@@ -74,13 +94,15 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
         value={inputText}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={`아이디어를 입력하세요!
 
 사용법:
-Ctrl/Cmd + Enter로 생성
-ON/OFF - Shift + T 또는 버튼 클릭`}
+ON/OFF - Shift + T / 버튼 클릭
+Ctrl/Cmd + Enter로 생성`}
         style={{
           width: "100%",
           height: "150px",
