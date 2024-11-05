@@ -245,9 +245,97 @@ export default function Whiteboard() {
     redraw();
   }, [scale, offset, redraw]);
 
+  const handleFileUpload = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/* , application/pdf, text/markdown';
+    fileInput.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files[0]) {
+        const file = target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target) {
+            // 화면 중앙 좌표 계산
+            const centerX = (window.innerWidth / 2 - offset.x * scale) / scale;
+            const centerY = (window.innerHeight / 2 - offset.y * scale) / scale;
+            let innerWidget: AllWidgetTypes;
+            if (file.type.startsWith('image/')) {
+              innerWidget = {
+                id: Date.now().toString(),
+                type: 'image',
+                src: event.target.result as string,
+                x: Math.round(centerX / baseSpacing) * baseSpacing,
+                y: Math.round(centerY / baseSpacing) * baseSpacing,
+                width: 472,
+                name: file.name,
+                draggable: true,
+                editable: true,
+                resizeable: true,
+                headerBar: true,
+                footerBar: false,
+              };
+            } else if (file.type === 'application/pdf') {
+              innerWidget = {
+                id: Date.now().toString(),
+                type: 'pdf',
+                src: event.target.result as string,
+                x: Math.round(centerX / baseSpacing) * baseSpacing,
+                y: Math.round(centerY / baseSpacing) * baseSpacing,
+                height: 750,
+                draggable: true,
+                editable: true,
+                resizeable: true,
+                headerBar: true,
+                footerBar: false,
+              };
+            } else if (
+              file.type === 'text/markdown' ||
+              file.type === 'text/x-markdown'
+            ) {
+              innerWidget = {
+                id: Date.now().toString(),
+                type: 'text',
+                src: event.target.result as string,
+                fontSize: FONT_SIZE,
+                x: Math.round(centerX / baseSpacing) * baseSpacing,
+                y: Math.round(centerY / baseSpacing) * baseSpacing,
+                draggable: true,
+                editable: true,
+                resizeable: true,
+                headerBar: true,
+                footerBar: false,
+              };
+            } else {
+              console.warn(`지원되지 않는 파일 형식: ${file.type}`);
+              return;
+            }
+            // 공통 shell 위젯 생성
+            const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+              id: Date.now().toString(),
+              type: 'shell',
+              x: Math.round(centerX / baseSpacing) * baseSpacing,
+              y: Math.round(centerY / baseSpacing) * baseSpacing,
+              width: 472,
+              height: 184,
+              resizable: true,
+              editable: true,
+              draggable: true,
+              innerWidget,
+            };
+            dispatch(addWidget(newWidget));
+            dispatch(setSelectedWidget(newWidget.id));
+            setTool('select');
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    fileInput.click();
+  };
+
   //마우스를 다운을 트리거로 위젯 생성, 선택, 드래그 모드 설정
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    console.log('what is Selected:', selectedWidget);
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -385,6 +473,7 @@ export default function Whiteboard() {
   //   }
   // };
   // 기존 텍스트 위젯만 필터링하는 함수 추가
+
   const getTextWidgets = (
     widgets: ShellWidgetProps<AllWidgetTypes>[]
   ): TextWidget[] => {
@@ -552,7 +641,7 @@ export default function Whiteboard() {
           <Button
             variant={tool === 'upload' ? 'toolSelect' : 'white'}
             size='icon'
-            onClick={() => setTool('upload')}
+            onClick={() => handleFileUpload()}
           >
             <File className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>

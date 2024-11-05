@@ -13,17 +13,35 @@ interface WidgetTextProps extends TextWidgetType {
 }
 
 export default function WidgetText({
-  text,
   editable,
   fontSize,
   autoFocus,
   onHeightChange,
+  ...props
 }: WidgetTextProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentHeight, setCurrentHeight] = useState(184);
 
-  const initialContent: PartialBlock[] | undefined = text
-    ? JSON.parse(text)
+  useEffect(() => {
+    const loadMarkdown = async () => {
+      if (props.src) {
+        const response = await fetch(props.src);
+        const text = await response.text();
+        const blocks = await editor.tryParseMarkdownToBlocks(text);
+        // setInitialContent(blocks);
+        editor.replaceBlocks(editor.document, blocks);
+      } else if (props.mkText) {
+        const blocks = await editor.tryParseMarkdownToBlocks(props.mkText);
+        // setInitialContent(blocks);
+        editor.replaceBlocks(editor.document, blocks);
+      }
+    };
+
+    loadMarkdown();
+  }, []);
+
+  const initialContent: PartialBlock[] | undefined = props.text
+    ? JSON.parse(props.text)
     : undefined;
 
   const editor = useCreateBlockNote({

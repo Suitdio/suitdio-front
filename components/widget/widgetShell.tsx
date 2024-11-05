@@ -37,6 +37,8 @@ import {
 } from '@/lib/utils/svgBag';
 import { FaPause } from 'react-icons/fa';
 import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
+import WidgetImage from './widgetImage';
+import WidgetPdf from './widgetPdf';
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
@@ -302,6 +304,20 @@ export default function WidgetShell({
       // 다른 위젯 타입들도 여기에 추가 가능
       case 'section':
         return <WidgetArea />;
+      case 'image':
+        return (
+          <WidgetImage
+            {...widget.innerWidget}
+            onHeightChange={handleHeightChange}
+          />
+        );
+      case 'pdf':
+        return (
+          <WidgetPdf
+            {...widget.innerWidget}
+            onHeightChange={handleHeightChange}
+          />
+        );
       default:
         return null;
     }
@@ -487,7 +503,6 @@ export default function WidgetShell({
           </div>
         </div>
       )}
-
       {renderInnerWidget()}
       {footerBar && (
         <div className='footer-bar'>
