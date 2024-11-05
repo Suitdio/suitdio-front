@@ -289,7 +289,7 @@ export default function Whiteboard() {
             draggable: true,
             editable: true,
             resizeable: true,
-            headerBar: false,
+            headerBar: true,
             footerBar: false,
           };
           break;

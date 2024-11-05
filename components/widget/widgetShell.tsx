@@ -283,6 +283,9 @@ export default function WidgetShell({
     if (isHovering) {
       setHoveredEdge(position);
     }
+    if (!isHovering) {
+      setHoveredEdge(null);
+    }
   };
 
   const renderInnerWidget = () => {
@@ -306,7 +309,7 @@ export default function WidgetShell({
 
   // 드래그 핸들러
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isEditMode && draggable) {
+    if (!isEditMode && draggable && !isArrowNodeHovered) {
       e.preventDefault();
       e.stopPropagation();
       if (
@@ -566,12 +569,27 @@ export default function WidgetShell({
         <div
           className='arrow-node n'
           style={setArrowNodeStyle('n')}
-          onMouseEnter={() => dispatch(setIsArrowMode(true))}
-          onMouseLeave={() => dispatch(setIsArrowMode(false))}
+          onMouseEnter={(e) => handleArrowNodeHover('n', true, e)}
+          onMouseLeave={(e) => handleArrowNodeHover('n', false, e)}
         />
-        <div className='arrow-node s' style={setArrowNodeStyle('s')} />
-        <div className='arrow-node w' style={setArrowNodeStyle('w')} />
-        <div className='arrow-node e' style={setArrowNodeStyle('e')} />
+        <div
+          className='arrow-node s'
+          style={setArrowNodeStyle('s')}
+          onMouseEnter={(e) => handleArrowNodeHover('s', true, e)}
+          onMouseLeave={(e) => handleArrowNodeHover('s', false, e)}
+        />
+        <div
+          className='arrow-node w'
+          style={setArrowNodeStyle('w')}
+          onMouseEnter={(e) => handleArrowNodeHover('w', true, e)}
+          onMouseLeave={(e) => handleArrowNodeHover('w', false, e)}
+        />
+        <div
+          className='arrow-node e'
+          style={setArrowNodeStyle('e')}
+          onMouseEnter={(e) => handleArrowNodeHover('e', true, e)}
+          onMouseLeave={(e) => handleArrowNodeHover('e', false, e)}
+        />
       </div>
     </div>
   );
