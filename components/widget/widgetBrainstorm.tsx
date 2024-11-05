@@ -17,6 +17,7 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
   const [inputText, setInputText] = useState("");
   const [isSelected, setIsSelected] = useState(false);
   const isProcessing = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Shift+T 단축키 핸들러 수정
   useEffect(() => {
@@ -40,26 +41,30 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
     []
   );
 
+  const createNode = useCallback(() => {
+    if (textareaRef.current && inputText.trim()) {
+      const currentText = textareaRef.current.value;
+      if (currentText.trim()) {
+        onCreateNode(currentText);
+        setInputText("");
+      }
+    }
+  }, [inputText, onCreateNode]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
-        // 중복 처리 방지
         if (isProcessing.current) return;
         isProcessing.current = true;
 
-        if (inputText.trim()) {
-          onCreateNode(inputText);
-          setInputText("");
-        }
-
-        // 처리 완료 후 플래그 리셋
         setTimeout(() => {
+          createNode();
           isProcessing.current = false;
-        }, 100);
+        }, 10);
       }
     },
-    [inputText, onCreateNode]
+    [createNode]
   );
 
   // textarea에 focus 이벤트 핸들러 추가
@@ -80,6 +85,7 @@ const BrainstormInput: React.FC<BrainstormInputProps> = ({
       }}
     >
       <textarea
+        ref={textareaRef}
         value={inputText}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
