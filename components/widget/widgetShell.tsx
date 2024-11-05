@@ -36,6 +36,7 @@ import {
   wideFrameSvg8px,
 } from '@/lib/utils/svgBag';
 import { FaPause } from 'react-icons/fa';
+import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
@@ -163,7 +164,8 @@ export default function WidgetShell({
   const [isSelected, setIsSelected] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [hoveredEdge, setHoveredEdge] = useState<EdgePosition>(null);
-  const [isHovered, setIsHovered] = useState(false);
+
+  const [isArrowNodeHovered, setIsArrowNodeHovered] = useState(false);
 
   useEffect(() => {
     setIsSelected(selectedWidget === widget.id);
@@ -217,55 +219,69 @@ export default function WidgetShell({
     }
   };
 
-  // arrow 노드 스타일 함수 추가
-  const getArrowNodeStyle = (position: string): React.CSSProperties => {
+  // arrow 노드 스타일 함수 수정
+  const setArrowNodeStyle = (position: string): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
       position: 'absolute',
-      width: '6px',
-      height: '6px',
+      width: hoveredEdge === position ? '10px' : '6px', // hover 시 크기 증가
+      height: hoveredEdge === position ? '10px' : '6px',
       backgroundColor: '#FFB300',
-      outline: `${
-        isEditMode
-          ? '2px solid black'
-          : isSelected
-          ? '2px solid #BBDEFB'
-          : '#e0e0e0'
-      }`, // 테두리 추가
+      outline:
+        hoveredEdge === position
+          ? 'none'
+          : `${
+              isEditMode
+                ? '2px solid black'
+                : isSelected
+                ? '2px solid #BBDEFB'
+                : '#e0e0e0'
+            }`,
       borderRadius: '50%',
-      display: hoveredEdge === position ? 'block' : 'none', // hover된 방향만 표시
+      display: hoveredEdge === position ? 'block' : 'none',
+      cursor: 'pointer',
+      zIndex: 10, // resize 핸들보다 위에 표시
+      transition: 'all 0.2s ease',
     };
 
-    switch (position) {
-      case 'n':
-        return {
-          ...baseStyle,
-          top: '-4px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-        };
-      case 's':
-        return {
-          ...baseStyle,
-          bottom: '-4px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-        };
-      case 'w':
-        return {
-          ...baseStyle,
-          left: '-4px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-        };
-      case 'e':
-        return {
-          ...baseStyle,
-          right: '-4px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-        };
-      default:
-        return baseStyle;
+    const positions = {
+      n: {
+        top: hoveredEdge === 'n' ? '-6px' : '-4px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+      },
+      s: {
+        bottom: hoveredEdge === 's' ? '-6px' : '-4px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+      },
+      w: {
+        left: hoveredEdge === 'w' ? '-6px' : '-4px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+      },
+      e: {
+        right: hoveredEdge === 'e' ? '-6px' : '-4px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+      },
+    };
+
+    return {
+      ...baseStyle,
+      ...(positions[position as keyof typeof positions] || {}),
+    };
+  };
+
+  // arrow node hover 핸들러
+  const handleArrowNodeHover = (
+    position: EdgePosition,
+    isHovering: boolean,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    setIsArrowNodeHovered(isHovering);
+    if (isHovering) {
+      setHoveredEdge(position);
     }
   };
 
@@ -419,8 +435,6 @@ export default function WidgetShell({
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       {headerBar && (
         <div className='transition-opacity duration-200 hover:bg-gray-100 header-bar opacity-0 group-hover:opacity-100'>
@@ -515,70 +529,50 @@ export default function WidgetShell({
           </div>
         </div>
       )}
-      {isSelected && (
-        <>
-          <div className='resize-handle nw' style={getHandleStyle('nw')} />
-          <div className='resize-handle ne' style={getHandleStyle('ne')} />
-          <div className='resize-handle sw' style={getHandleStyle('sw')} />
-          <div className='resize-handle se' style={getHandleStyle('se')} />
-          <div className='resize-handle n' style={getHandleStyle('n')} />
-          <div className='resize-handle s' style={getHandleStyle('s')} />
-          <div className='resize-handle w' style={getHandleStyle('w')} />
-          <div className='resize-handle e' style={getHandleStyle('e')} />
-        </>
-      )}
-      <div
-        className='resize-handle n'
-        style={{
-          ...getHandleStyle('n'),
-          height: '16px',
-          top: '-8px',
-          backgroundColor:
-            hoveredEdge === 'n' ? 'rgba(187, 222, 251, 0.2)' : 'transparent',
-        }}
-        onMouseEnter={() => handleEdgeHover('n')}
-        onMouseLeave={() => handleEdgeHover(null)}
-      />
-      <div
-        className='resize-handle s'
-        style={{
-          ...getHandleStyle('s'),
-          height: '16px',
-          bottom: '-8px',
-          backgroundColor:
-            hoveredEdge === 's' ? 'rgba(187, 222, 251, 0.2)' : 'transparent',
-        }}
-        onMouseEnter={() => handleEdgeHover('s')}
-        onMouseLeave={() => handleEdgeHover(null)}
-      />
-      <div
-        className='resize-handle w'
-        style={{
-          ...getHandleStyle('w'),
-          width: '16px',
-          left: '-8px',
-          backgroundColor:
-            hoveredEdge === 'w' ? 'rgba(187, 222, 251, 0.2)' : 'transparent',
-        }}
-        onMouseEnter={() => handleEdgeHover('w')}
-        onMouseLeave={() => handleEdgeHover(null)}
-      />
-      <div
-        className='resize-handle e'
-        style={{
-          ...getHandleStyle('e'),
-          width: '16px',
-          right: '-8px',
-          backgroundColor:
-            hoveredEdge === 'e' ? 'rgba(187, 222, 251, 0.2)' : 'transparent',
-        }}
-        onMouseEnter={() => handleEdgeHover('e')}
-        onMouseLeave={() => handleEdgeHover(null)}
-      />
-      <div className='arrow-node n' style={getArrowNodeStyle('n')} />
-      <div className='arrow-node s' style={getArrowNodeStyle('s')} />
-      <div className='arrow-node w' style={getArrowNodeStyle('w')} />
-      <div className='arrow-node e' style={getArrowNodeStyle('e')} />
+      {/* {isSelected && (
+        
+      )} */}
+      <>
+        <div className='resize-handle nw' style={getHandleStyle('nw')} />
+        <div className='resize-handle ne' style={getHandleStyle('ne')} />
+        <div className='resize-handle sw' style={getHandleStyle('sw')} />
+        <div className='resize-handle se' style={getHandleStyle('se')} />
+        <div
+          className='resize-handle n'
+          style={getHandleStyle('n')}
+          onMouseEnter={() => handleEdgeHover('n')}
+          onMouseLeave={() => handleEdgeHover(null)}
+        />
+        <div
+          className='resize-handle s'
+          style={getHandleStyle('s')}
+          onMouseEnter={() => handleEdgeHover('s')}
+          onMouseLeave={() => handleEdgeHover(null)}
+        />
+        <div
+          className='resize-handle w'
+          style={getHandleStyle('w')}
+          onMouseEnter={() => handleEdgeHover('w')}
+          onMouseLeave={() => handleEdgeHover(null)}
+        />
+        <div
+          className='resize-handle e'
+          style={getHandleStyle('e')}
+          onMouseEnter={() => handleEdgeHover('e')}
+          onMouseLeave={() => handleEdgeHover(null)}
+        />
+      </>
+      <div className='arrow-node-container'>
+        <div
+          className='arrow-node n'
+          style={setArrowNodeStyle('n')}
+          onMouseEnter={() => dispatch(setIsArrowMode(true))}
+          onMouseLeave={() => dispatch(setIsArrowMode(false))}
+        />
+        <div className='arrow-node s' style={setArrowNodeStyle('s')} />
+        <div className='arrow-node w' style={setArrowNodeStyle('w')} />
+        <div className='arrow-node e' style={setArrowNodeStyle('e')} />
+      </div>
     </div>
   );
 }

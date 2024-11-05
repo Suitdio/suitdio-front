@@ -271,7 +271,7 @@ export default function Whiteboard() {
             editable: true,
             resizeable: true,
             headerBar: true,
-            footerBar: true,
+            footerBar: false,
           };
           break;
 
@@ -290,7 +290,7 @@ export default function Whiteboard() {
             editable: true,
             resizeable: true,
             headerBar: false,
-            footerBar: true,
+            footerBar: false,
           };
           break;
         default:
