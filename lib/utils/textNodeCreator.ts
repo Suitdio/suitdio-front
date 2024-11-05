@@ -1,4 +1,4 @@
-import { TextWidget } from "../type";
+import { TextWidget } from '../type';
 
 interface Position {
   x: number;
@@ -82,14 +82,14 @@ export const createTextNode = (
 
   const initialText = JSON.stringify([
     {
-      type: "paragraph",
+      type: 'paragraph',
       content: text,
     },
   ]);
 
   return {
     id: `text-${shapeCount + 1}`,
-    type: "text",
+    type: 'text',
     x: position.x,
     y: position.y,
     text: initialText,
@@ -99,7 +99,7 @@ export const createTextNode = (
     draggable: true,
     editable: true,
     resizeable: true,
-    headerBar: false,
+    headerBar: true,
     footerBar: false,
   };
 };
