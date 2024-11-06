@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 interface WidgetUrlProps extends IframeEmbedWidget {
   onHeightChange: (height: number) => void;
   width: number;
-  height: number;
+  height?: number;
 }
 
 export default function WidgetUrl({
@@ -15,12 +15,10 @@ export default function WidgetUrl({
 }: WidgetUrlProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  useEffect(() => {
-    onHeightChange?.(height);
-  }, [height]);
+  const iframeHeight = height ? height - 64 : 712;
 
   return (
-    <div style={{ width: width || 472, height: height, overflow: 'hidden' }}>
+    <div style={{ width: width || 472, height: iframeHeight }}>
       <iframe
         ref={iframeRef}
         src={props.src}

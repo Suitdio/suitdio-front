@@ -465,7 +465,7 @@ export default function WidgetShell({
         }`,
         outlineOffset: '0px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
-        overflow: `${widget.innerWidget.type === 'url' ? 'hidden' : 'visible'}`,
+        // overflow: `${widget.innerWidget.type === 'url' ? 'hidden' : 'visible'}`,
       }}
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
