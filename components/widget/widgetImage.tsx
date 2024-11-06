@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 export default function WidgetImage({
   onHeightChange,
+  width,
   ...props
 }: ImageEmbedWidget & { onHeightChange?: (height: number) => void }) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -14,14 +15,14 @@ export default function WidgetImage({
     img.src = props.src;
     img.onload = () => {
       const aspectRatio = img.height / img.width;
-      const newHeight = Math.round(props.width ? props.width * aspectRatio : 0);
+      const newHeight = Math.round(width ? width * aspectRatio : 0);
       setHeight(newHeight);
       onHeightChange?.(newHeight);
       setImage(img);
     };
-  }, [props.src, props.width]);
+  }, [props.src, width]);
 
-  if (!image || props.width === 0) {
+  if (!image || width === 0) {
     return null;
   }
 
@@ -30,7 +31,7 @@ export default function WidgetImage({
       <Image
         src={props.src}
         alt='image'
-        width={props.width}
+        width={width}
         height={height}
         objectFit='contain'
       />

@@ -309,6 +309,7 @@ export default function WidgetShell({
         return (
           <WidgetImage
             {...widget.innerWidget}
+            width={widget.width}
             onHeightChange={handleHeightChange}
           />
         );
@@ -316,6 +317,7 @@ export default function WidgetShell({
         return (
           <WidgetPdf
             {...widget.innerWidget}
+            width={widget.width}
             onHeightChange={handleHeightChange}
           />
         );
@@ -323,6 +325,8 @@ export default function WidgetShell({
         return (
           <WidgetUrl
             {...widget.innerWidget}
+            width={widget.width}
+            height={widget.height}
             onHeightChange={handleHeightChange}
           />
         );
@@ -399,7 +403,11 @@ export default function WidgetShell({
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (widget.innerWidget.type === 'text') {
+    if (
+      widget.innerWidget.type === 'text' ||
+      widget.innerWidget.type === 'url' ||
+      widget.innerWidget.type === 'pdf'
+    ) {
       dispatch(setEditModeWidgets(widget.id));
       dispatch(setSelectedWidget(null));
     }

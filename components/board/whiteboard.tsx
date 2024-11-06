@@ -278,7 +278,7 @@ export default function Whiteboard() {
         src: dataUrl,
         x: Math.round(centerX / baseSpacing) * baseSpacing,
         y: Math.round(centerY / baseSpacing) * baseSpacing,
-        height: 750,
+        width: 460,
         draggable: true,
         editable: true,
         resizeable: true,
@@ -678,7 +678,7 @@ export default function Whiteboard() {
       id: Date.now().toString(),
       type: 'shell',
       width: 472,
-      height: 184,
+      height: 712, // URL 위젯 기본 높이
       x,
       y,
       resizable: true,
