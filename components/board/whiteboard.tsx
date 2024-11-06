@@ -13,6 +13,7 @@ import {
   Disc2,
   Tornado,
   Boxes,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDispatch, useSelector } from 'react-redux';
@@ -27,6 +28,7 @@ import {
   AllWidgetTypes,
   AllWidgetType,
   TextWidget,
+  IframeEmbedWidget,
 } from '@/lib/type';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
@@ -37,6 +39,9 @@ import { HiOutlineSparkles } from 'react-icons/hi2';
 import { Separator } from '../ui/separator';
 import { createTextNode } from '@/lib/utils/textNodeCreator';
 import BrainstormInput from '../widget/widgetBrainstorm';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 // 기본 그리드 설정
 let baseSpacing = 48; // 기본 간격
 let basePointSize = 4; // 기본 점 크기
@@ -60,6 +65,7 @@ export default function Whiteboard() {
   const [spacePressed, setSpacePressed] = useState(false);
   const [isZooming, setIsZooming] = useState(false);
   const [isBrainstormActive, setIsBrainstormActive] = useState(false); // 브레인스톰 상태 추가
+  const [url, setUrl] = useState('');
   const selectedWidget = useSelector(
     (state: RootState) => state.whiteboard.selectedWidget
   );
@@ -245,9 +251,110 @@ export default function Whiteboard() {
     redraw();
   }, [scale, offset, redraw]);
 
+  const processFile = (file: File, dataUrl: string) => {
+    const centerX = (window.innerWidth / 2 - offset.x * scale) / scale;
+    const centerY = (window.innerHeight / 2 - offset.y * scale) / scale;
+    let innerWidget: AllWidgetTypes;
+
+    if (file.type.startsWith('image/')) {
+      innerWidget = {
+        id: Date.now().toString(),
+        type: 'image',
+        src: dataUrl,
+        x: Math.round(centerX / baseSpacing) * baseSpacing,
+        y: Math.round(centerY / baseSpacing) * baseSpacing,
+        width: 472,
+        name: file.name,
+        draggable: true,
+        editable: true,
+        resizeable: true,
+        headerBar: true,
+        footerBar: false,
+      };
+    } else if (file.type === 'application/pdf') {
+      innerWidget = {
+        id: Date.now().toString(),
+        type: 'pdf',
+        src: dataUrl,
+        x: Math.round(centerX / baseSpacing) * baseSpacing,
+        y: Math.round(centerY / baseSpacing) * baseSpacing,
+        width: 460,
+        draggable: true,
+        editable: true,
+        resizeable: true,
+        headerBar: true,
+        footerBar: false,
+      };
+    } else if (
+      file.type === 'text/markdown' ||
+      file.type === 'text/x-markdown'
+    ) {
+      innerWidget = {
+        id: Date.now().toString(),
+        type: 'text',
+        src: dataUrl,
+        fontSize: FONT_SIZE,
+        x: Math.round(centerX / baseSpacing) * baseSpacing,
+        y: Math.round(centerY / baseSpacing) * baseSpacing,
+        draggable: true,
+        editable: true,
+        resizeable: true,
+        headerBar: true,
+        footerBar: false,
+      };
+    } else {
+      console.warn(`지원되지 않는 파일 형식: ${file.type}`);
+      return;
+    }
+
+    const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+      id: Date.now().toString(),
+      type: 'shell',
+      x: Math.round(centerX / baseSpacing) * baseSpacing,
+      y: Math.round(centerY / baseSpacing) * baseSpacing,
+      width: 472,
+      height: 184,
+      resizable: true,
+      editable: true,
+      draggable: true,
+      innerWidget,
+    };
+
+    dispatch(addWidget(newWidget));
+    dispatch(setSelectedWidget(newWidget.id));
+    setTool('select');
+  };
+
+  const handleFileUpload = (dragFile?: File) => {
+    const handleFile = (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          processFile(file, event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+
+    if (dragFile) {
+      handleFile(dragFile);
+      return;
+    }
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*, application/pdf, text/markdown';
+    fileInput.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files?.[0]) {
+        handleFile(target.files[0]);
+      }
+    };
+    fileInput.click();
+  };
+
   //마우스를 다운을 트리거로 위젯 생성, 선택, 드래그 모드 설정
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    console.log('what is Selected:', selectedWidget);
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -279,8 +386,8 @@ export default function Whiteboard() {
               },
             ]),
             fontSize: FONT_SIZE,
-            x: Math.round(x / baseSpacing) * baseSpacing,
-            y: Math.round(y / baseSpacing) * baseSpacing,
+            // x: Math.round(x / baseSpacing) * baseSpacing,
+            // y: Math.round(y / baseSpacing) * baseSpacing,
             draggable: true,
             editable: true,
             resizeable: true,
@@ -351,8 +458,6 @@ export default function Whiteboard() {
   const handleMouseUp = () => {
     setIsPanning(false);
   };
-
-  // const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
   //   e.preventDefault();
   //   e.stopPropagation();
 
@@ -385,6 +490,7 @@ export default function Whiteboard() {
   //   }
   // };
   // 기존 텍스트 위젯만 필터링하는 함수 추가
+
   const getTextWidgets = (
     widgets: ShellWidgetProps<AllWidgetTypes>[]
   ): TextWidget[] => {
@@ -420,8 +526,8 @@ export default function Whiteboard() {
     const newWidget: ShellWidgetProps<AllWidgetTypes> = {
       id: Date.now().toString(),
       type: 'shell',
-      x: newNode.x,
-      y: newNode.y,
+      x: newNode.x ?? 0,
+      y: newNode.y ?? 0,
       width: 200,
       height: 500,
       resizable: true,
@@ -440,6 +546,147 @@ export default function Whiteboard() {
 
   const handleZoomOut = () => {
     setScale((prevScale) => Math.max(prevScale - 0.1, 0.1));
+  };
+
+  // 드래그 앤 드롭 이벤트 리스너
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('dragover', handleDragOver);
+      container.addEventListener('drop', handleDrop);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('dragover', handleDragOver);
+        container.removeEventListener('drop', handleDrop);
+      }
+    };
+  }, []);
+
+  // 드래그 오버 핸들러
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // 드롭 핸들러
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer?.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  // URL 추가 핸들러
+  const handleUrlAdd = () => {
+    if (url && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const centerPosition = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
+
+      // URL 유효성 검사
+      const isUrl = /^(http|https):\/\/[^ "]+$/.test(url);
+      if (isUrl) {
+        addUrlWidgets(centerPosition, url);
+        setUrl('https://'); // 입력 필드 초기화
+      } else {
+        addTextWidgets(centerPosition, url);
+      }
+      setTool('select');
+    }
+  };
+
+  // 클립보드 붙여넣기 및 마우스 이동 이벤트 리스너
+  useEffect(() => {
+    if (tool !== 'url') {
+      const handlePaste = (e: ClipboardEvent) => {
+        e.preventDefault();
+        const pastedText = e.clipboardData?.getData('text');
+
+        if (pastedText && mousePosition) {
+          const isUrl = /^(http|https):\/\/[^ "]+$/.test(pastedText);
+          isUrl
+            ? addUrlWidgets(mousePosition, pastedText)
+            : addTextWidgets(mousePosition, pastedText);
+        }
+      };
+
+      const handleMouseMove = (e: MouseEvent) => {
+        setMousePosition({ x: e.clientX, y: e.clientY });
+      };
+
+      document.addEventListener('paste', handlePaste);
+      document.addEventListener('mousemove', handleMouseMove);
+
+      return () => {
+        document.removeEventListener('paste', handlePaste);
+        document.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [widgets, mousePosition]);
+
+  const addTextWidgets = (mousePos: { x: number; y: number }, text: string) => {
+    const x = (mousePos.x - offset.x * scale) / scale;
+    const y = (mousePos.y - offset.y * scale) / scale;
+
+    const innerWidget: TextWidget = {
+      id: Date.now().toString(),
+      type: 'text',
+      mkText: text,
+      fontSize: FONT_SIZE,
+      draggable: true,
+      editable: true,
+      resizeable: true,
+      headerBar: true,
+      footerBar: false,
+    };
+    const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+      id: Date.now().toString(),
+      type: 'shell',
+      width: 472,
+      height: 184,
+      x,
+      y,
+      resizable: true,
+      editable: true,
+      draggable: true,
+      innerWidget,
+    };
+    dispatch(addWidget(newWidget));
+  };
+
+  const addUrlWidgets = (mousePos: { x: number; y: number }, text: string) => {
+    const x = (mousePos.x - offset.x * scale) / scale;
+    const y = (mousePos.y - offset.y * scale) / scale;
+
+    const innerWidget: IframeEmbedWidget = {
+      id: Date.now().toString(),
+      type: 'url',
+      src: text,
+      draggable: true,
+      editable: true,
+      resizeable: true,
+      headerBar: true,
+      footerBar: false,
+    };
+    const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+      id: Date.now().toString(),
+      type: 'shell',
+      width: 472,
+      height: 712, // URL 위젯 기본 높이
+      x,
+      y,
+      resizable: true,
+      editable: true,
+      draggable: true,
+      innerWidget,
+    };
+    dispatch(addWidget(newWidget));
   };
 
   return (
@@ -552,19 +799,60 @@ export default function Whiteboard() {
           <Button
             variant={tool === 'upload' ? 'toolSelect' : 'white'}
             size='icon'
-            onClick={() => setTool('upload')}
+            onClick={() => handleFileUpload()}
           >
             <File className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
           </Button>
-          <Button
+          {/* <Button
             variant={tool === 'url' ? 'toolSelect' : 'white'}
             size='icon'
             onClick={() => setTool('url')}
           >
             <AppWindowMacIcon className='h-4 w-4' />
             <span className='sr-only'>Text tool</span>
-          </Button>
+          </Button> */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={tool === 'url' ? 'toolSelect' : 'white'}
+                size='icon'
+                onClick={() => setTool('url')}
+              >
+                <AppWindowMacIcon className='h-4 w-4' />
+                <span className='sr-only'>Text tool</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className='w-120 bg-white'>
+              <div className='grid gap-4'>
+                <div className='space-y-2'>
+                  <h4 className='font-medium leading-none'>Input URL</h4>
+                  <p className='text-sm text-muted-foreground'>
+                    You can input the URL of the page you want to embed.
+                  </p>
+                </div>
+                <div className='grid gap-2'>
+                  <div className='grid grid-cols-3 items-center gap-4'>
+                    <Label htmlFor='url'>URL</Label>
+                    <Input
+                      id='url'
+                      defaultValue='https://'
+                      className='col-span-2 h-8'
+                      onChange={(e) => setUrl(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    variant='outline'
+                    size='icon'
+                    className='w-full'
+                    onClick={handleUrlAdd}
+                  >
+                    <Plus className='h-4 w-4' />
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant={tool === 'template' ? 'toolSelect' : 'white'}
             size='icon'

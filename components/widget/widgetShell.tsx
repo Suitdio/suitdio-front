@@ -37,6 +37,9 @@ import {
 } from '@/lib/utils/svgBag';
 import { FaPause } from 'react-icons/fa';
 import { setIsArrowMode } from '@/lib/redux/features/arrowSlice';
+import WidgetImage from './widgetImage';
+import WidgetPdf from './widgetPdf';
+import WidgetUrl from './widgetUrl';
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
@@ -302,6 +305,31 @@ export default function WidgetShell({
       // 다른 위젯 타입들도 여기에 추가 가능
       case 'section':
         return <WidgetArea />;
+      case 'image':
+        return (
+          <WidgetImage
+            {...widget.innerWidget}
+            width={widget.width}
+            onHeightChange={handleHeightChange}
+          />
+        );
+      case 'pdf':
+        return (
+          <WidgetPdf
+            {...widget.innerWidget}
+            width={widget.width}
+            onHeightChange={handleHeightChange}
+          />
+        );
+      case 'url':
+        return (
+          <WidgetUrl
+            {...widget.innerWidget}
+            width={widget.width}
+            height={widget.height}
+            onHeightChange={handleHeightChange}
+          />
+        );
       default:
         return null;
     }
@@ -375,7 +403,11 @@ export default function WidgetShell({
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (widget.innerWidget.type === 'text') {
+    if (
+      widget.innerWidget.type === 'text' ||
+      widget.innerWidget.type === 'url' ||
+      widget.innerWidget.type === 'pdf'
+    ) {
       dispatch(setEditModeWidgets(widget.id));
       dispatch(setSelectedWidget(null));
     }
@@ -433,7 +465,7 @@ export default function WidgetShell({
         }`,
         outlineOffset: '0px', // 음수 값을 주면 안쪽으로 들어갑니다
         borderRadius: '4px',
-        // overflow: 'hidden',
+        overflow: `${widget.innerWidget.type === 'url' ? 'hidden' : 'visible'}`,
       }}
       onClick={() => dispatch(setSelectedWidget(widget.id))}
       onMouseDown={handleMouseDown}
@@ -487,7 +519,6 @@ export default function WidgetShell({
           </div>
         </div>
       )}
-
       {renderInnerWidget()}
       {footerBar && (
         <div className='footer-bar'>
