@@ -37,6 +37,10 @@ import { HiOutlineSparkles } from "react-icons/hi2";
 import { Separator } from "../ui/separator";
 import { createTextNode } from "@/lib/utils/textNodeCreator";
 import BrainstormInput from "../widget/widgetBrainstorm";
+import CreateBoardDialog from "../ui/creatboard";
+import FocusControlBar from "../ui/FocusControlBar";
+import { Content } from "@radix-ui/react-dialog";
+
 // 기본 그리드 설정
 let baseSpacing = 48; // 기본 간격
 let basePointSize = 4; // 기본 점 크기
@@ -60,6 +64,20 @@ export default function Whiteboard() {
   const [spacePressed, setSpacePressed] = useState(false);
   const [isZooming, setIsZooming] = useState(false);
   const [isBrainstormActive, setIsBrainstormActive] = useState(false); // 브레인스톰 상태 추가
+  const [contentTitle, setContentTitle] = useState(""); // contentTitle 상태 추가
+  const [dialogOpen, setDialogOpen] = useState(false); // 다이얼로그 상태 추가
+  const [boardPosition, setBoardPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [isBoardPlacementMode, setIsBoardPlacementMode] = useState(false);
+  const [isSectionPlacementMode, setIsSectionPlacementMode] = useState(false);
+
+  // 입력 변경 핸들러
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setContentTitle(e.target.value);
+  };
+
   const selectedWidget = useSelector(
     (state: RootState) => state.whiteboard.selectedWidget
   );
@@ -247,6 +265,9 @@ export default function Whiteboard() {
 
   //마우스를 다운을 트리거로 위젯 생성, 선택, 드래그 모드 설정
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    console.log("Mouse Down - Tool:", tool);
+    console.log("Board Placement Mode:", isBoardPlacementMode);
+
     console.log("what is Selected:", selectedWidget);
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -264,6 +285,18 @@ export default function Whiteboard() {
     if (tool === "select" || tool === "brainStorm") {
       dispatch(setSelectedWidget(null));
       dispatch(setEditModeWidgets(null));
+      // 보드 생성 모드일 때
+    } else if (tool === "boardLink" && isBoardPlacementMode) {
+      const position = {
+        x: Math.round(x / baseSpacing) * baseSpacing,
+        y: Math.round(y / baseSpacing) * baseSpacing,
+      };
+      console.log("Setting board position:", position);
+      setBoardPosition(position);
+      setDialogOpen(true);
+      setIsBoardPlacementMode(false);
+      setTool("select");
+      return;
     } else {
       let innerWidget: AllWidgetTypes;
       // tool 타입에 따른 innerWidget 설정
@@ -436,6 +469,73 @@ export default function Whiteboard() {
     // dispatch(setSelectedWidget(newWidget.id));  // 브레인 스톰 모드에서 text 위젯 생성시 선택
   };
 
+  // 저장 클릭 핸들러 수정
+  const handleSaveClick = useCallback(
+    (e?: React.MouseEvent<HTMLButtonElement>) => {
+      e?.preventDefault();
+      console.log("1. Save Click - Title:", contentTitle);
+      console.log("2. Board Position:", boardPosition);
+
+      if (!boardPosition || !contentTitle.trim()) {
+        console.log("3. Error: Missing position or title");
+        console.log("boardPosition:", boardPosition);
+        console.log("contentTitle:", contentTitle);
+        return;
+      }
+
+      // 제목과 내용을 분리
+      const initialText = JSON.stringify([
+        {
+          type: "paragraph",
+          content: "", // 내용은 빈 문자열로 초기화
+        },
+      ]);
+
+      const newBoard: ShellWidgetProps<AllWidgetTypes> = {
+        id: `board-${widgets.length + 1}`,
+        type: "shell",
+        x: boardPosition.x,
+        y: boardPosition.y,
+        width: 500,
+        height: 300,
+        resizable: true,
+        editable: true,
+        draggable: true,
+        innerWidget: {
+          id: `board-inner-${widgets.length + 1}`,
+          type: "boardLink",
+          titleBlock: contentTitle, // 제목은 contentTitle 사용
+          width: 500,
+          height: 300,
+          x: boardPosition.x,
+          y: boardPosition.y,
+          draggable: true,
+          editable: true,
+          resizeable: true,
+          headerBar: true,
+          footerBar: true,
+          text: initialText, // 내용은 빈 텍스트로 초기화
+        },
+      };
+
+      console.log("4. Creating new board:", newBoard);
+      dispatch(addWidget(newBoard));
+      console.log("5. Current widgets:", widgets);
+
+      setDialogOpen(false);
+      setContentTitle("");
+      setBoardPosition(null);
+
+      console.log("6. Dialog closed, state reset");
+    },
+    [boardPosition, contentTitle, widgets, dispatch]
+  );
+
+  // 보드 생성 버튼 클릭 핸들러 수정
+  const handleAddBoard = useCallback(() => {
+    setIsBoardPlacementMode(true); // 보드 배치 모드 활성화
+  }, []);
+
   const handleZoomIn = () => {
     setScale((prevScale) => Math.min(prevScale + 0.1, 5));
   };
@@ -508,7 +608,10 @@ export default function Whiteboard() {
           <Button
             variant={tool === "boardLink" ? "toolSelect" : "white"}
             size="icon"
-            onClick={() => setTool("boardLink")}
+            onClick={() => {
+              setTool("boardLink");
+              handleAddBoard();
+            }}
           >
             <Disc2 className="h-4 w-4" />
             <span className="sr-only">Text tool</span>
@@ -614,6 +717,14 @@ export default function Whiteboard() {
             footerBar={widget.innerWidget.footerBar}
           />
         ))}
+        <CreateBoardDialog
+          contentTitle={contentTitle}
+          handleInputChange={handleInputChange}
+          handleSaveClick={handleSaveClick}
+          className="custom-dialog-class"
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
         <BrainstormInput
           onCreateNode={handleCreateTextNode}
           isActive={isBrainstormActive}

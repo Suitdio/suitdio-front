@@ -1,5 +1,5 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { AllWidgetTypes, ShellWidgetProps, TextWidget } from '@/lib/type';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { AllWidgetTypes, ShellWidgetProps, TextWidget } from "@/lib/type";
 
 interface WhiteboardState {
   widgets: ShellWidgetProps<AllWidgetTypes>[];
@@ -14,7 +14,7 @@ const initialState: WhiteboardState = {
 };
 
 const whiteboardSlice = createSlice({
-  name: 'whiteboard',
+  name: "whiteboard",
   initialState,
   reducers: {
     addWidget: (

@@ -28,7 +28,8 @@ export interface WidgetProps {
     | "template"
     | "upload"
     | "aiSearch"
-    | "refresh";
+    | "refresh"
+    | "board";
   isSelected?: boolean;
 }
 
@@ -165,9 +166,10 @@ export interface BoardWidget extends WidgetProps {
   resizeable: boolean;
   headerBar: boolean;
   footerBar: boolean;
+  text: string;
 }
 
-export interface ArrowShape extends WidgetProps {
+export interface ArrowWidget extends WidgetProps {
   type: "arrow";
   from: string;
   to: string;
