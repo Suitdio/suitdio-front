@@ -1,18 +1,6 @@
-import React, { useRef, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { updateArrowPositions } from "@/lib/redux/features/arrowSlice";
-import {
-  SectionWidget,
-  AllWidgetTypes,
-  isArrow,
-  ArrowWidget,
-  ShellWidgetProps,
-} from "@/lib/type";
-import {
-  snap,
-  snapWidgetPosition,
-  snapWidgetResize,
-} from "@/lib/utils/snapping";
+import React, { useEffect, useState, useCallback } from "react";
+import { debounce } from "lodash"; // lodash 임포트
+import { SectionWidget, AllWidgetTypes, ShellWidgetProps } from "@/lib/type";
 import {
   isCompletelyContained,
   isWithinBounds,
@@ -41,64 +29,67 @@ export default function WidgetSection({
   scale,
   offset,
 }: WidgetSectionProps) {
-  const dispatch = useDispatch();
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
-  // 섹션 영역 체크 및 멤버 업데이트
+  // 디바운스된 멤버 업데이트 함수
+  const updateMembers = useCallback(
+    debounce(() => {
+      if (isDragging || isResizing) return;
+
+      const sectionBounds = {
+        x: widget.x,
+        y: widget.y,
+        width: widget.width,
+        height: widget.height,
+      };
+
+      // 여유 공간을 둔 경계 계산 (100px)
+      const margin = 100;
+      const boundsWithMargin = {
+        x: sectionBounds.x - margin,
+        y: sectionBounds.y - margin,
+        width: sectionBounds.width + margin * 2,
+        height: sectionBounds.height + margin * 2,
+      };
+
+      // 섹션 내부에 있는 객체들 찾기
+      const newMembers = shapes
+        .filter((shape) => {
+          if (shape.id === widget.id) return false;
+          const isContained = isCompletelyContained(shape, widget);
+          const isWithinMargin = isWithinBounds(shape, boundsWithMargin);
+          const isMember =
+            widget.innerWidget.memberIds?.includes(shape.id) || false;
+          return isContained || (isMember && isWithinMargin);
+        })
+        .map((shape) => shape.id);
+
+      // 멤버십이 변경된 경우에만 업데이트
+      const sortedNewMembers = [...newMembers].sort().join(",");
+      const sortedCurrentMembers = [...(widget.innerWidget.memberIds || [])]
+        .sort()
+        .join(",");
+
+      if (sortedNewMembers !== sortedCurrentMembers) {
+        onChange({
+          ...widget,
+          innerWidget: {
+            ...widget.innerWidget,
+            memberIds: newMembers,
+          },
+        });
+      }
+    }, 200), // 200ms 디바운스 시간
+    [widget.x, widget.y, widget.width, widget.height, shapes]
+  );
+
   useEffect(() => {
-    if (isDragging || isResizing) return;
-
-    const sectionBounds = {
-      x: widget.x,
-      y: widget.y,
-      width: widget.width,
-      height: widget.height,
+    updateMembers();
+    return () => {
+      updateMembers.cancel();
     };
-
-    // 여유 공간을 둔 경계 계산 (100px)
-    const margin = 100;
-    const boundsWithMargin = {
-      x: sectionBounds.x - margin,
-      y: sectionBounds.y - margin,
-      width: sectionBounds.width + margin * 2,
-      height: sectionBounds.height + margin * 2,
-    };
-
-    // 섹션 내부에 있는 객체들 찾기
-    const newMembers = shapes
-      .filter((shape) => {
-        if (shape.id === widget.id) return false;
-        // sectionHelpers의 함수 사용
-        const isContained = isCompletelyContained(shape, widget);
-        const isWithinMargin = isWithinBounds(shape, boundsWithMargin);
-        const isMember =
-          widget.innerWidget.memberIds?.includes(shape.id) || false;
-
-        return isContained || (isMember && isWithinMargin);
-      })
-      .map((shape) => shape.id);
-
-    // 멤버십이 변경된 경우에만 업데이트
-    const sortedNewMembers = [...newMembers].sort();
-    const sortedCurrentMembers = [
-      ...(widget.innerWidget.memberIds || []),
-    ].sort();
-
-    if (
-      JSON.stringify(sortedNewMembers) !== JSON.stringify(sortedCurrentMembers)
-    ) {
-      onChange({
-        ...widget,
-        innerWidget: {
-          ...widget.innerWidget,
-          memberIds: newMembers,
-        },
-      });
-    }
-  }, [shapes, widget, onChange, isDragging, isResizing]);
+  }, [updateMembers]);
 
   return (
     <div
