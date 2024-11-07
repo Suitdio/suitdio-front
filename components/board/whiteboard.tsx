@@ -27,6 +27,7 @@ import {
   AllWidgetTypes,
   AllWidgetType,
   TextWidget,
+  SectionWidget,
 } from "@/lib/type";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -72,6 +73,15 @@ export default function Whiteboard() {
   } | null>(null);
   const [isBoardPlacementMode, setIsBoardPlacementMode] = useState(false);
   const [isSectionPlacementMode, setIsSectionPlacementMode] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  // 섹션 드래그 상태 추가
+  const [sectionDraft, setSectionDraft] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // 입력 변경 핸들러
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,7 +220,7 @@ export default function Whiteboard() {
           const rect = containerRef.current?.getBoundingClientRect();
           if (!rect) return;
 
-          // Screen 좌표에서 컨테이너의 상대적 위치 계산
+          // Screen 좌표���서 컨테이너의 상대적 위치 계산
           const pointX = (mousePosition.x - rect.left) / scale;
           const pointY = (mousePosition.y - rect.top) / scale;
 
@@ -255,9 +265,27 @@ export default function Whiteboard() {
     ctx.save();
     ctx.scale(scale, scale);
     ctx.translate(offset.x, offset.y);
+
     drawGrid(ctx);
+
+    // 섹션 드래프트 그리기
+    if (sectionDraft) {
+      ctx.fillStyle = "rgba(200, 200, 200, 0.2)";
+      ctx.strokeStyle = "#00A3FF";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.rect(
+        sectionDraft.x,
+        sectionDraft.y,
+        sectionDraft.width,
+        sectionDraft.height
+      );
+      ctx.fill();
+      ctx.stroke();
+    }
+
     ctx.restore();
-  }, [drawGrid, scale, offset]);
+  }, [scale, offset, sectionDraft]);
 
   useEffect(() => {
     redraw();
@@ -265,10 +293,6 @@ export default function Whiteboard() {
 
   //마우스를 다운을 트리거로 위젯 생성, 선택, 드래그 모드 설정
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    console.log("Mouse Down - Tool:", tool);
-    console.log("Board Placement Mode:", isBoardPlacementMode);
-
-    console.log("what is Selected:", selectedWidget);
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -291,12 +315,23 @@ export default function Whiteboard() {
         x: Math.round(x / baseSpacing) * baseSpacing,
         y: Math.round(y / baseSpacing) * baseSpacing,
       };
-      console.log("Setting board position:", position);
       setBoardPosition(position);
       setDialogOpen(true);
       setIsBoardPlacementMode(false);
       setTool("select");
       return;
+    } else if (tool === "section") {
+      const startPos = {
+        x: Math.round(x / baseSpacing) * baseSpacing,
+        y: Math.round(y / baseSpacing) * baseSpacing,
+      };
+      setDragStart(startPos);
+      setSectionDraft({
+        x: startPos.x,
+        y: startPos.y,
+        width: 0,
+        height: 0,
+      });
     } else {
       let innerWidget: AllWidgetTypes;
       // tool 타입에 따른 innerWidget 설정
@@ -322,24 +357,6 @@ export default function Whiteboard() {
           };
           break;
 
-        case "section":
-          innerWidget = {
-            id: Date.now().toString(),
-            type: "section",
-            width: 100,
-            height: 100,
-            fill: "#ffffff",
-            memberIds: [],
-            // section 타입에 맞는 추가 속성들 설정
-            x: Math.round(x / baseSpacing) * baseSpacing,
-            y: Math.round(y / baseSpacing) * baseSpacing,
-            draggable: true,
-            editable: true,
-            resizeable: true,
-            headerBar: true,
-            footerBar: false,
-          };
-          break;
         default:
           return;
       }
@@ -347,7 +364,7 @@ export default function Whiteboard() {
       // 공통 shell 위젯 생성
       const newWidget: ShellWidgetProps<AllWidgetTypes> = {
         id: Date.now().toString(),
-        type: "shell",
+        type: tool,
         x: Math.round(x / baseSpacing) * baseSpacing,
         y: Math.round(y / baseSpacing) * baseSpacing,
         width: 472,
@@ -379,9 +396,66 @@ export default function Whiteboard() {
       setDragStart({ x: e.clientX, y: e.clientY });
       return;
     }
+
+    if (tool === "section" && sectionDraft) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const currentX = (e.clientX - rect.left - offset.x * scale) / scale;
+      const currentY = (e.clientY - rect.top - offset.y * scale) / scale;
+
+      const width = Math.abs(currentX - dragStart.x);
+      const height = Math.abs(currentY - dragStart.y);
+      const sectionX = Math.min(currentX, dragStart.x);
+      const sectionY = Math.min(currentY, dragStart.y);
+
+      setSectionDraft({
+        x: Math.round(sectionX / baseSpacing) * baseSpacing,
+        y: Math.round(sectionY / baseSpacing) * baseSpacing,
+        width: Math.round(width / baseSpacing) * baseSpacing,
+        height: Math.round(height / baseSpacing) * baseSpacing,
+      });
+      redraw();
+    }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (tool === "section" && sectionDraft) {
+      if (sectionDraft.width > 0 && sectionDraft.height > 0) {
+        const innerWidget: SectionWidget = {
+          id: Date.now().toString(),
+          type: "section",
+          x: sectionDraft.x,
+          y: sectionDraft.y,
+          width: sectionDraft.width,
+          height: sectionDraft.height,
+          fill: "rgba(200, 200, 200, 0.2)",
+          memberIds: [],
+          draggable: true,
+          editable: false,
+          resizeable: true,
+          headerBar: false,
+          footerBar: false,
+        };
+
+        const newWidget: ShellWidgetProps<AllWidgetTypes> = {
+          id: Date.now().toString(),
+          type: "section",
+          x: sectionDraft.x,
+          y: sectionDraft.y,
+          width: sectionDraft.width,
+          height: sectionDraft.height,
+          resizable: true,
+          editable: true,
+          draggable: true,
+          innerWidget,
+        };
+
+        dispatch(addWidget(newWidget));
+      }
+      setSectionDraft(null);
+      setTool("select");
+    }
     setIsPanning(false);
   };
 
@@ -454,7 +528,7 @@ export default function Whiteboard() {
     // 새로운 위젯을 추가
     const newWidget: ShellWidgetProps<AllWidgetTypes> = {
       id: Date.now().toString(),
-      type: "shell",
+      type: "text",
       x: newNode.x,
       y: newNode.y,
       width: 200,
@@ -473,13 +547,8 @@ export default function Whiteboard() {
   const handleSaveClick = useCallback(
     (e?: React.MouseEvent<HTMLButtonElement>) => {
       e?.preventDefault();
-      console.log("1. Save Click - Title:", contentTitle);
-      console.log("2. Board Position:", boardPosition);
 
       if (!boardPosition || !contentTitle.trim()) {
-        console.log("3. Error: Missing position or title");
-        console.log("boardPosition:", boardPosition);
-        console.log("contentTitle:", contentTitle);
         return;
       }
 
@@ -493,7 +562,7 @@ export default function Whiteboard() {
 
       const newBoard: ShellWidgetProps<AllWidgetTypes> = {
         id: `board-${widgets.length + 1}`,
-        type: "shell",
+        type: "boardLink",
         x: boardPosition.x,
         y: boardPosition.y,
         width: 500,
@@ -518,15 +587,11 @@ export default function Whiteboard() {
         },
       };
 
-      console.log("4. Creating new board:", newBoard);
       dispatch(addWidget(newBoard));
-      console.log("5. Current widgets:", widgets);
 
       setDialogOpen(false);
       setContentTitle("");
       setBoardPosition(null);
-
-      console.log("6. Dialog closed, state reset");
     },
     [boardPosition, contentTitle, widgets, dispatch]
   );

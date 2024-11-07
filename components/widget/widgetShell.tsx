@@ -5,9 +5,12 @@ import {
   NODE_WIDGET_TYPES,
   NodeWidgetType,
   ShellWidgetProps,
+  SectionWidget,
+  isSection,
 } from "@/lib/type";
 import WidgetText from "./widgetText";
-import WidgetBoard from "./widgetboard";
+import WidgetBoard from "./widgetBoard";
+import WidgetSection from "./widgetSection";
 import { useDispatch, useSelector } from "react-redux";
 import {
   deleteWidget,
@@ -36,8 +39,13 @@ import {
   sixBoltSvg,
   wideFrameSvg8px,
 } from "@/lib/utils/svgBag";
-import { FaPause } from "react-icons/fa";
 import { setIsArrowMode } from "@/lib/redux/features/arrowSlice";
+import {
+  isCompletelyContained,
+  updateSectionAndMembers,
+  updateSectionResize,
+  limitMovementInSection,
+} from "@/lib/utils/sectionHelpers";
 
 interface WidgetShellProps {
   widget: ShellWidgetProps<AllWidgetTypes>;
@@ -48,6 +56,8 @@ interface WidgetShellProps {
   resizeable: boolean;
   headerBar: boolean;
   footerBar: boolean;
+  fill?: string;
+  memberIds?: string[];
 }
 
 //resize 핸들 스타일 함수
@@ -146,6 +156,8 @@ export default function WidgetShell({
   resizeable,
   headerBar,
   footerBar,
+  fill,
+  memberIds,
 }: WidgetShellProps) {
   const dispatch = useDispatch();
   const [isDragging, setIsDragging] = useState(false);
@@ -167,6 +179,8 @@ export default function WidgetShell({
   const [hoveredEdge, setHoveredEdge] = useState<EdgePosition>(null);
 
   const [isArrowNodeHovered, setIsArrowNodeHovered] = useState(false);
+
+  const widgets = useSelector((state: RootState) => state.whiteboard.widgets);
 
   useEffect(() => {
     setIsSelected(selectedWidget === widget.id);
@@ -300,6 +314,42 @@ export default function WidgetShell({
             onHeightChange={handleHeightChange}
           />
         );
+      case "section":
+        const sectionWidget = {
+          ...widget,
+          type: "section" as const,
+          innerWidget: {
+            ...widget.innerWidget,
+            type: "section" as const,
+            fill: widget.innerWidget.fill || "rgba(200, 200, 200, 0.2)",
+            memberIds: (widget.innerWidget as SectionWidget).memberIds || [],
+          },
+        } satisfies ShellWidgetProps<SectionWidget>;
+
+        return (
+          <WidgetSection
+            widget={sectionWidget}
+            isSelected={isSelected}
+            onSelect={() => dispatch(setSelectedWidget(widget.id))}
+            onChange={(newAttrs) => {
+              dispatch(
+                updateWidget({
+                  ...widget,
+                  ...newAttrs,
+                })
+              );
+            }}
+            shapes={widgets}
+            updateShapes={(newShapes) => {
+              newShapes.forEach((shape) => {
+                dispatch(updateWidget(shape));
+              });
+            }}
+            scale={scale}
+            offset={offset}
+          />
+        );
+
       case "boardLink":
         return (
           <div className="flex flex-col h-full">
@@ -320,8 +370,6 @@ export default function WidgetShell({
             </div>
           </div>
         );
-      case "section":
-        return <WidgetArea />;
       default:
         return null;
     }
@@ -358,30 +406,118 @@ export default function WidgetShell({
         scale
       );
 
-      dispatch(
-        updateWidget({
-          ...widget,
-          x: snappedX / scale,
-          y: snappedY / scale,
-        })
-      );
-    } else if (isResizing) {
-      const newPositions = snapWidgetResize(
-        resizeDirection!,
-        dragStart,
-        { x: e.clientX, y: e.clientY },
-        widget,
-        scale,
-        isNodeWidget ? 8 : 0
-      );
+      const dx = snappedX / scale - widget.x;
+      const dy = snappedY / scale - widget.y;
 
-      dispatch(
-        updateWidget({
-          ...widget,
-          ...newPositions,
-        })
-      );
+      if (isSection(widget.innerWidget)) {
+        // 섹션 이동 시 멤버들도 함께 이동
+        const updatedShapes = updateSectionAndMembers(widget, dx, dy, widgets);
+        updatedShapes.forEach((shape) => {
+          dispatch(updateWidget(shape));
+        });
+      } // 객체를 드래그하는 경우
+      else {
+        const newX = snappedX / scale;
+        const newY = snappedY / scale;
+
+        // 현재 객체의 포함 관계를 즉시 업데이트
+        widgets.forEach((otherWidget) => {
+          if (
+            isSection(otherWidget.innerWidget) &&
+            otherWidget.id !== widget.id
+          ) {
+            const isCurrentlyMember =
+              otherWidget.innerWidget.memberIds.includes(widget.id);
+            const isNowContained = isCompletelyContained(
+              { ...widget, x: newX, y: newY },
+              otherWidget
+            );
+
+            if (isNowContained && !isCurrentlyMember) {
+              // 객체가 섹션 내부에 있고, 현재 멤버가 아니라면 추가
+              dispatch(
+                updateWidget({
+                  ...otherWidget,
+                  innerWidget: {
+                    ...otherWidget.innerWidget,
+                    memberIds: [
+                      ...otherWidget.innerWidget.memberIds,
+                      widget.id,
+                    ],
+                  },
+                })
+              );
+            } else if (!isNowContained && isCurrentlyMember) {
+              // 객체가 섹션 내부에 없고, 현재 멤버라면 제거
+              dispatch(
+                updateWidget({
+                  ...otherWidget,
+                  innerWidget: {
+                    ...otherWidget.innerWidget,
+                    memberIds: otherWidget.innerWidget.memberIds.filter(
+                      (id) => id !== widget.id
+                    ),
+                  },
+                })
+              );
+            }
+          }
+        });
+
+        // 객체 위치 업데이트
+        dispatch(
+          updateWidget({
+            ...widget,
+            x: newX,
+            y: newY,
+          })
+        );
+      }
+    } else if (isResizing) {
+      // 기존 크기 조절 로직 유지
+      // 섹션 크기 조절 시 멤버들의 위치와 크기도 업데이트 필요
+      if (isSection(widget.innerWidget)) {
+        const newPositions = snapWidgetResize(
+          resizeDirection!,
+          dragStart,
+          { x: e.clientX, y: e.clientY },
+          widget,
+          scale,
+          isNodeWidget ? 8 : 0
+        );
+
+        const updatedShapes = updateSectionResize(
+          widget,
+          newPositions.width,
+          newPositions.height,
+          newPositions.x,
+          newPositions.y,
+          widgets
+        );
+
+        updatedShapes.forEach((shape) => {
+          dispatch(updateWidget(shape));
+        });
+      } else {
+        // 일반 위젯의 크기 조절
+        const newPositions = snapWidgetResize(
+          resizeDirection!,
+          dragStart,
+          { x: e.clientX, y: e.clientY },
+          widget,
+          scale,
+          isNodeWidget ? 8 : 0
+        );
+
+        dispatch(
+          updateWidget({
+            ...widget,
+            ...newPositions,
+          })
+        );
+      }
     }
+
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
@@ -425,7 +561,7 @@ export default function WidgetShell({
       className="widget-shell group"
       style={{
         position: "absolute",
-        zIndex: 1,
+        zIndex: widget.innerWidget.type === "section" ? 1 : 2,
         padding: "4px",
         margin: isNodeWidget ? `${4 * scale}px` : "0",
         left: `${(widget.x + offset.x) * scale}px`, // offset을 더한 후 scale 적용
@@ -434,7 +570,11 @@ export default function WidgetShell({
         height: `${widget.height}px`,
         transform: `scale(${scale})`,
         transformOrigin: "0 0",
-        backgroundColor: isSelected ? "white" : "white",
+        backgroundColor:
+          widget.innerWidget.type === "section"
+            ? "rgba(200, 200, 200, 0.2)"
+            : "white",
+        opacity: widget.innerWidget.type === "section" ? 0.8 : 1,
         border: `2px solid ${
           isEditMode
             ? "black"
