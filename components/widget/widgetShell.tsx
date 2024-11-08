@@ -39,7 +39,12 @@ import {
   sixBoltSvg,
   wideFrameSvg8px,
 } from "@/lib/utils/svgBag";
-import { setIsArrowMode } from "@/lib/redux/features/arrowSlice";
+import {
+  setArrowStartPoint,
+  setIsArrowMode,
+  setIsDrawing,
+  setArrowEndPoint,
+} from "@/lib/redux/features/arrowSlice";
 import {
   isCompletelyContained,
   updateSectionAndMembers,
@@ -236,6 +241,7 @@ export default function WidgetShell({
 
   // arrow 노드 스타일 함수 수정
   const setArrowNodeStyle = (position: string): React.CSSProperties => {
+    console.log("4. Setting arrow node style for position:", position);
     const baseStyle: React.CSSProperties = {
       position: "absolute",
       width: hoveredEdge === position ? "10px" : "6px", // hover 시 크기 증가
@@ -287,19 +293,86 @@ export default function WidgetShell({
     };
   };
 
-  // arrow node hover 핸들러
+  // arrow node hover 핸들러 수정
   const handleArrowNodeHover = (
     position: EdgePosition,
     isHovering: boolean,
     e: React.MouseEvent
   ) => {
+    if (!isArrowMode) return; // arrow 모드일 때만 동작
+
+    console.log("1. Arrow node hover event:", { position, isHovering });
     e.stopPropagation();
     setIsArrowNodeHovered(isHovering);
+
     if (isHovering) {
+      console.log("2. Setting hovered edge:", position);
       setHoveredEdge(position);
-    }
-    if (!isHovering) {
+    } else {
+      console.log("3. Clearing hovered edge");
       setHoveredEdge(null);
+    }
+  };
+
+  // isDrawing 상태를 컴포넌트 최상단으로 이동
+  const isDrawing = useSelector((state: RootState) => state.arrow.isDrawing);
+
+  // arrow node click 핸들러 수정
+  const handleArrowNodeClick = (
+    e: React.MouseEvent,
+    position: EdgePosition
+  ) => {
+    console.log("1. Arrow node clicked", { position });
+    if (!isArrowMode) {
+      console.log("2. Not in arrow mode, ignoring click");
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 위젯의 중심점 계산
+    const centerX = widget.x + (widget.width || 0) / 2;
+    const centerY = widget.y + (widget.height || 0) / 2;
+
+    // 클릭한 위치에 따른 점 조정
+    let point;
+    switch (position) {
+      case "n":
+        point = { x: centerX, y: widget.y, widgetId: widget.id };
+        break;
+      case "s":
+        point = {
+          x: centerX,
+          y: widget.y + (widget.height || 0),
+          widgetId: widget.id,
+        };
+        break;
+      case "w":
+        point = { x: widget.x, y: centerY, widgetId: widget.id };
+        break;
+      case "e":
+        point = {
+          x: widget.x + (widget.width || 0),
+          y: centerY,
+          widgetId: widget.id,
+        };
+        break;
+      default:
+        console.log("Invalid position:", position);
+        return;
+    }
+
+    if (!isDrawing) {
+      // 시작점 설정
+      console.log("3. Setting arrow start point:", point);
+      dispatch(setArrowStartPoint(point));
+      dispatch(setIsDrawing(true));
+    } else {
+      // 끝점 설정
+      console.log("4. Setting arrow end point:", point);
+      dispatch(setArrowEndPoint(point));
+      dispatch(setIsDrawing(false));
     }
   };
 
@@ -725,31 +798,49 @@ export default function WidgetShell({
           onMouseLeave={() => handleEdgeHover(null)}
         />
       </>
-      <div className="arrow-node-container">
-        <div
-          className="arrow-node n"
-          style={setArrowNodeStyle("n")}
-          onMouseEnter={(e) => handleArrowNodeHover("n", true, e)}
-          onMouseLeave={(e) => handleArrowNodeHover("n", false, e)}
-        />
-        <div
-          className="arrow-node s"
-          style={setArrowNodeStyle("s")}
-          onMouseEnter={(e) => handleArrowNodeHover("s", true, e)}
-          onMouseLeave={(e) => handleArrowNodeHover("s", false, e)}
-        />
-        <div
-          className="arrow-node w"
-          style={setArrowNodeStyle("w")}
-          onMouseEnter={(e) => handleArrowNodeHover("w", true, e)}
-          onMouseLeave={(e) => handleArrowNodeHover("w", false, e)}
-        />
-        <div
-          className="arrow-node e"
-          style={setArrowNodeStyle("e")}
-          onMouseEnter={(e) => handleArrowNodeHover("e", true, e)}
-          onMouseLeave={(e) => handleArrowNodeHover("e", false, e)}
-        />
+      <div
+        className="arrow-node-container"
+        style={{ pointerEvents: isArrowMode ? "all" : "none" }}
+      >
+        {isArrowMode && (
+          <>
+            <div
+              className="arrow-node n"
+              style={setArrowNodeStyle("n")}
+              onMouseEnter={(e) => handleArrowNodeHover("n", true, e)}
+              onMouseLeave={(e) => handleArrowNodeHover("n", false, e)}
+              onClick={(e) => {
+                console.log("North node clicked");
+                handleArrowNodeClick(e, "n");
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+            <div
+              className="arrow-node s"
+              style={setArrowNodeStyle("s")}
+              onMouseEnter={(e) => handleArrowNodeHover("s", true, e)}
+              onMouseLeave={(e) => handleArrowNodeHover("s", false, e)}
+              onClick={(e) => handleArrowNodeClick(e, "s")}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+            <div
+              className="arrow-node w"
+              style={setArrowNodeStyle("w")}
+              onMouseEnter={(e) => handleArrowNodeHover("w", true, e)}
+              onMouseLeave={(e) => handleArrowNodeHover("w", false, e)}
+              onClick={(e) => handleArrowNodeClick(e, "w")}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+            <div
+              className="arrow-node e"
+              style={setArrowNodeStyle("e")}
+              onMouseEnter={(e) => handleArrowNodeHover("e", true, e)}
+              onMouseLeave={(e) => handleArrowNodeHover("e", false, e)}
+              onClick={(e) => handleArrowNodeClick(e, "e")}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          </>
+        )}
       </div>
     </div>
   );

@@ -7,7 +7,8 @@ export type AllWidgetTypes =
   | PDFEmbedWidget
   | IframeEmbedWidget
   | SectionWidget
-  | BoardWidget;
+  | BoardWidget
+  | ArrowWidget;
 
 // 새로운 타입을 추가할 때 여기에 | NewWidgetType 형태로 추가
 

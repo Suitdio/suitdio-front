@@ -1,5 +1,5 @@
 "use client";
-
+import { Action, UnknownAction, Store, Dispatch } from "redux";
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   Type,
@@ -21,6 +21,9 @@ import {
   addWidget,
   setSelectedWidget,
   setEditModeWidgets,
+  updateArrowEndpoints,
+  setWidgets,
+  updateWidget,
 } from "@/lib/redux/features/whiteboardSlice";
 import {
   ShellWidgetProps,
@@ -28,6 +31,9 @@ import {
   AllWidgetType,
   TextWidget,
   SectionWidget,
+  isArrow,
+  ArrowWidget,
+  EdgePosition,
 } from "@/lib/type";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -39,8 +45,19 @@ import { Separator } from "../ui/separator";
 import { createTextNode } from "@/lib/utils/textNodeCreator";
 import BrainstormInput from "../widget/widgetBrainstorm";
 import CreateBoardDialog from "../ui/creatboard";
-import FocusControlBar from "../ui/FocusControlBar";
-import { Content } from "@radix-ui/react-dialog";
+import {
+  setIsArrowMode,
+  updateArrowPositions,
+  addArrow,
+  updateArrow,
+  setArrowEndPoint,
+} from "@/lib/redux/features/arrowSlice";
+import {
+  getConnectorPoints,
+  getClosestSidePoint,
+  findClosestWidgetAtPoint,
+} from "@/lib/utils/arrowutils/arrowPath";
+import ArrowR from "@/components/ui/arrow/arrowR";
 
 // 기본 그리드 설정
 let baseSpacing = 48; // 기본 간격
@@ -67,14 +84,17 @@ export default function Whiteboard() {
   const [isBrainstormActive, setIsBrainstormActive] = useState(false); // 브레인스톰 상태 추가
   const [contentTitle, setContentTitle] = useState(""); // contentTitle 상태 추가
   const [dialogOpen, setDialogOpen] = useState(false); // 다이얼로그 상태 추가
+  const [isDrawingArrow, setIsDrawingArrow] = useState(false); //화살표
+  const [tempArrow, setTempArrow] = useState<ArrowWidget | null>(null); // 화살표
+  const [startObject, setStartObject] = // 화살표 시작 위젯
+    useState<ShellWidgetProps<AllWidgetTypes> | null>(null);
   const [boardPosition, setBoardPosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
   const [isBoardPlacementMode, setIsBoardPlacementMode] = useState(false);
-  const [isSectionPlacementMode, setIsSectionPlacementMode] = useState(false);
-  const [isDrawing, setIsDrawing] = useState(false);
 
+  const lastUpdate = useSelector((state: RootState) => state.arrow.lastUpdate);
   // 섹션 드래그 상태 추가
   const [sectionDraft, setSectionDraft] = useState<{
     x: number;
@@ -220,7 +240,7 @@ export default function Whiteboard() {
           const rect = containerRef.current?.getBoundingClientRect();
           if (!rect) return;
 
-          // Screen 좌표���서 컨테이너의 상대적 위치 계산
+          // Screen 좌표서 컨테이너의 상대적 위치 계산
           const pointX = (mousePosition.x - rect.left) / scale;
           const pointY = (mousePosition.y - rect.top) / scale;
 
@@ -609,6 +629,457 @@ export default function Whiteboard() {
     setScale((prevScale) => Math.max(prevScale - 0.1, 0.1));
   };
 
+  //화살표 시작
+  // 화살표 생성 모드 활성화
+  const handleArrowToolClick = () => {
+    dispatch(setIsArrowMode(true));
+  };
+
+  const updateArrows = useCallback(
+    (widget: ArrowWidget) => {
+      const fromWidget = widgets.find((w) => w.id === widget.from);
+      const toWidget = widgets.find((w) => w.id === widget.to);
+
+      if (fromWidget && toWidget) {
+        const result = getConnectorPoints(
+          fromWidget.innerWidget,
+          toWidget.innerWidget
+        );
+        return {
+          ...widget,
+          points: result.points,
+          arrowTipX: result.arrowTipX,
+          arrowTipY: result.arrowTipY,
+        };
+      }
+      return widget;
+    },
+    [dispatch, widgets]
+  );
+
+  // lastUpdate 변경될 때마다 화살표 업데이트
+  useEffect(() => {
+    if (lastUpdate) {
+      const { movedShapeId, shapes: updatedShapes } = lastUpdate;
+
+      // 기존 위젯들을 유지하면서 업데이트된 위젯들만 추가/수정
+      const existingWidgets = widgets.filter(
+        (w) => !updatedShapes.some((us) => us.id === w.id)
+      );
+
+      const newWidgets = [...existingWidgets, ...updatedShapes];
+      dispatch(setWidgets(newWidgets));
+    }
+  }, [lastUpdate, dispatch]);
+
+  // 화살표 (빨간원) 점(from, to) 드래그 함수
+  const handleArrowDragMove = useCallback(
+    (id: string, x: number, y: number, type: "from" | "to") => {
+      const currentArrow = widgets.find((w) => w.id === id);
+      if (!currentArrow || !isArrow(currentArrow.innerWidget)) return;
+
+      const otherWidgets = widgets.filter((s) => {
+        if (isArrow(currentArrow.innerWidget)) {
+          return (
+            s.id !== currentArrow.innerWidget.from &&
+            s.id !== currentArrow.innerWidget.to &&
+            !isArrow(s.innerWidget)
+          );
+        }
+        return false;
+      });
+
+      // 타입 단언을 사용하여 타입 호환성 문제 해결
+      const closestWidget = findClosestWidgetAtPoint(
+        x,
+        y,
+        otherWidgets.map((w) => ({
+          ...w.innerWidget,
+          resizeable: true,
+          headerBar: false,
+          footerBar: false,
+        })) as AllWidgetTypes[]
+      );
+
+      let finalPoint = { x, y };
+      if (closestWidget) {
+        finalPoint = getClosestSidePoint(closestWidget as AllWidgetTypes, x, y);
+      }
+
+      const updatedWidgets = widgets.map((widget) => {
+        if (widget.id === id && isArrow(widget.innerWidget)) {
+          const points = [...widget.innerWidget.points];
+          if (type === "from") {
+            points[0] = finalPoint.x;
+            points[1] = finalPoint.y;
+          } else {
+            points[points.length - 2] = finalPoint.x;
+            points[points.length - 1] = finalPoint.y;
+            return {
+              ...widget,
+              innerWidget: {
+                ...widget.innerWidget,
+                points,
+                arrowTipX: finalPoint.x,
+                arrowTipY: finalPoint.y,
+              },
+            };
+          }
+          return {
+            ...widget,
+            innerWidget: {
+              ...widget.innerWidget,
+              points,
+            },
+          };
+        }
+        return widget;
+      });
+
+      dispatch(setWidgets(updatedWidgets));
+
+      if (closestWidget && "id" in closestWidget) {
+        // widgetId가 undefined가 아닌 경우에만 dispatch
+        const widgetId = closestWidget.id;
+        if (widgetId) {
+          dispatch(
+            updateArrowEndpoints({
+              arrowId: id,
+              type,
+              widgetId,
+            })
+          );
+        }
+      }
+    },
+    [widgets, dispatch]
+  );
+
+  // 타입 가드 함수 수정
+  const isAllWidgetTypes = (
+    widget: ShellWidgetProps<AllWidgetTypes>
+  ): widget is ShellWidgetProps<AllWidgetTypes> => {
+    return (
+      widget.innerWidget.type === "text" ||
+      widget.innerWidget.type === "section" ||
+      widget.innerWidget.type === "image" ||
+      widget.innerWidget.type === "pdf" ||
+      widget.innerWidget.type === "url" ||
+      widget.innerWidget.type === "boardLink"
+    );
+  };
+  //화살표 끝
+
+  // Arrow 버튼 클릭 핸들러 수정
+  const handleArrowButtonClick = () => {
+    console.log("11. Arrow button clicked");
+    dispatch(setIsArrowMode(true));
+    setTool("arrow");
+    console.log("12. Arrow mode activated");
+  };
+
+  // Arrow 그리기 시작
+  const handleArrowStart = useCallback(
+    (e: MouseEvent, targetObject: ShellWidgetProps<AllWidgetTypes>) => {
+      console.log("10. Starting arrow drawing from:", targetObject);
+      if (!isArrowMode) {
+        console.log("Arrow mode is not active, returning");
+        return;
+      }
+
+      console.log("3. Target object for arrow start:", targetObject);
+      const point = getClosestSidePoint(
+        targetObject.innerWidget,
+        e.clientX,
+        e.clientY
+      );
+      console.log("4. Calculated start point:", point);
+
+      const newArrow: ArrowWidget = {
+        id: `arrow-${Date.now()}`,
+        type: "arrow",
+        from: targetObject.id,
+        to: "",
+        points: [point.x, point.y, e.clientX, e.clientY],
+        arrowTipX: e.clientX,
+        arrowTipY: e.clientY,
+        arrowHeads: { left: false, right: true },
+      };
+
+      console.log("5. Created new arrow:", newArrow);
+      setIsDrawingArrow(true);
+      setTempArrow(newArrow);
+      setStartObject(targetObject);
+    },
+    [isArrowMode]
+  );
+
+  // Arrow 드래그 중
+  const handleArrowDrag = useCallback(
+    (e: MouseEvent) => {
+      if (!isDrawingArrow || !tempArrow) {
+        console.log("Not in drawing state or no temp arrow");
+        return;
+      }
+
+      console.log("6. Dragging arrow");
+      const mousePoint = { x: e.clientX, y: e.clientY };
+      console.log("7. Mouse position:", mousePoint);
+
+      const updatedPoints = [
+        tempArrow.points[0],
+        tempArrow.points[1],
+        mousePoint.x,
+        mousePoint.y,
+      ];
+
+      console.log("10. Updated arrow points:", updatedPoints);
+      setTempArrow({
+        ...tempArrow,
+        points: updatedPoints,
+        arrowTipX: mousePoint.x,
+        arrowTipY: mousePoint.y,
+      });
+    },
+    [isDrawingArrow, tempArrow]
+  );
+
+  // Arrow 그리기 완료
+  const handleArrowComplete = useCallback(
+    (e: MouseEvent) => {
+      if (!isDrawingArrow || !tempArrow || !startObject) {
+        console.log("Cannot complete arrow - missing required state");
+        return;
+      }
+
+      console.log("11. Completing arrow drawing");
+      const endObject = findClosestWidgetAtPoint(
+        e.clientX,
+        e.clientY,
+        widgets.filter((w) => w.id !== startObject.id).map((w) => w.innerWidget)
+      );
+
+      if (endObject) {
+        console.log("12. Found end object:", endObject);
+        const finalPoints = getConnectorPoints(
+          startObject.innerWidget,
+          endObject
+        ).points;
+        console.log("13. Calculated final points:", finalPoints);
+
+        // 화살표 완료 처리
+        dispatch(
+          setArrowEndPoint({
+            x: finalPoints[finalPoints.length - 2],
+            y: finalPoints[finalPoints.length - 1],
+            widgetId: endObject.id,
+          })
+        );
+        console.log("14. Arrow end point set");
+      }
+
+      setIsDrawingArrow(false);
+      setTempArrow(null);
+      setStartObject(null);
+      console.log("15. Arrow drawing state reset");
+    },
+    [isDrawingArrow, tempArrow, startObject, widgets, dispatch]
+  );
+
+  // 마우스 이벤트 핸들러 수정
+  useEffect(() => {
+    if (isArrowMode) {
+      window.addEventListener("mousemove", handleArrowDrag);
+      window.addEventListener("mouseup", handleArrowComplete);
+      return () => {
+        window.removeEventListener("mousemove", handleArrowDrag);
+        window.removeEventListener("mouseup", handleArrowComplete);
+      };
+    }
+  }, [isArrowMode, handleArrowDrag, handleArrowComplete]);
+
+  // 화살표 업데이트 핸들러
+  const handleArrowUpdate = (
+    arrow: ShellWidgetProps<ArrowWidget>,
+    newAttrs: Partial<ArrowWidget>
+  ) => {
+    dispatch(
+      updateWidget({
+        ...arrow,
+        innerWidget: {
+          ...arrow.innerWidget,
+          ...newAttrs,
+        },
+      })
+    );
+  };
+
+  // Arrow 노드 클릭 핸들러
+  const handleArrowNodeClick = useCallback(
+    (
+      position: EdgePosition,
+      targetWidget: ShellWidgetProps<AllWidgetTypes>
+    ) => {
+      if (!isArrowMode) return;
+
+      console.log("Current widgets before action:", widgets);
+      console.log("Target widget:", targetWidget);
+
+      const centerX = targetWidget.x + (targetWidget.width || 0) / 2;
+      const centerY = targetWidget.y + (targetWidget.height || 0) / 2;
+
+      let point;
+      switch (position) {
+        case "n":
+          point = { x: centerX, y: targetWidget.y };
+          break;
+        case "s":
+          point = {
+            x: centerX,
+            y: targetWidget.y + (targetWidget.height || 0),
+          };
+          break;
+        case "w":
+          point = { x: targetWidget.x, y: centerY };
+          break;
+        case "e":
+          point = { x: targetWidget.x + (targetWidget.width || 0), y: centerY };
+          break;
+        default:
+          return;
+      }
+
+      if (!isDrawingArrow) {
+        // 화살표 그리기 시작
+        console.log("Starting arrow drawing from widget:", targetWidget.id);
+        setIsDrawingArrow(true);
+        const newArrow: ArrowWidget = {
+          id: `temp-arrow-${Date.now()}`,
+          type: "arrow",
+          from: targetWidget.id,
+          to: "",
+          points: [point.x, point.y, point.x, point.y],
+          arrowTipX: point.x,
+          arrowTipY: point.y,
+          arrowHeads: { left: false, right: true },
+        };
+        setTempArrow(newArrow);
+        setStartObject(targetWidget);
+      } else {
+        // 화살표 그리기 완료
+        if (startObject && tempArrow && startObject.id !== targetWidget.id) {
+          const finalPoints = getConnectorPoints(
+            startObject.innerWidget,
+            targetWidget.innerWidget
+          ).points;
+
+          const newArrowWidget: ShellWidgetProps<ArrowWidget> = {
+            id: `arrow-${Date.now()}`,
+            type: "arrow",
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            resizable: false,
+            editable: true,
+            draggable: true,
+            innerWidget: {
+              ...tempArrow,
+              id: `arrow-${Date.now()}`,
+              to: targetWidget.id,
+              points: finalPoints,
+            },
+          };
+
+          // 기존 위젯들을 유지하면서 새 화살표 추가
+          dispatch(addWidget(newArrowWidget));
+
+          // 상태 초기화
+          setIsDrawingArrow(false);
+          setTempArrow(null);
+          setStartObject(null);
+          dispatch(setIsArrowMode(false));
+        }
+      }
+    },
+    [isArrowMode, isDrawingArrow, startObject, tempArrow, dispatch, widgets]
+  );
+
+  // 위젯 배열 변경 감지
+  useEffect(() => {
+    console.log("Widgets array updated:", widgets);
+  }, [widgets]);
+
+  // lastUpdate 효과 제거 (중복 렌더링 방지)
+  useEffect(() => {
+    if (lastUpdate && lastUpdate.shapes.length > 0) {
+      // 이미 handleArrowNodeClick에서 화살표를 추가했으므로 여기서는 처리하지 않음
+      return;
+    }
+  }, [lastUpdate]);
+
+  // 위젯 이동 시 화살표 업데이트
+  useEffect(() => {
+    const updateArrowConnections = () => {
+      // 모든 화살표 찾기
+      const arrows = widgets.filter((w) => w.type === "arrow");
+
+      // 업데이트가 필요한 화살표만 찾기
+      const arrowsToUpdate = arrows.filter((arrow) => {
+        const arrowWidget = arrow.innerWidget as ArrowWidget;
+        const fromWidget = widgets.find((w) => w.id === arrowWidget.from);
+        const toWidget = widgets.find((w) => w.id === arrowWidget.to);
+
+        if (!fromWidget || !toWidget) return false;
+
+        // 현재 연결점과 새로운 연결점 비교
+        const result = getConnectorPoints(
+          fromWidget.innerWidget,
+          toWidget.innerWidget
+        );
+        const currentPoints = arrowWidget.points;
+
+        return (
+          result.points[0] !== currentPoints[0] ||
+          result.points[1] !== currentPoints[1] ||
+          result.points[2] !== currentPoints[2] ||
+          result.points[3] !== currentPoints[3]
+        );
+      });
+
+      // 변경이 필요한 화살표만 업데이트
+      if (arrowsToUpdate.length > 0) {
+        arrowsToUpdate.forEach((arrow) => {
+          const arrowWidget = arrow.innerWidget as ArrowWidget;
+          const fromWidget = widgets.find((w) => w.id === arrowWidget.from);
+          const toWidget = widgets.find((w) => w.id === arrowWidget.to);
+
+          if (fromWidget && toWidget) {
+            const result = getConnectorPoints(
+              fromWidget.innerWidget,
+              toWidget.innerWidget
+            );
+
+            dispatch(
+              updateArrow({
+                arrowId: arrow.id,
+                fromId: arrowWidget.from,
+                toId: arrowWidget.to,
+                points: result.points,
+                arrowTipX: result.arrowTipX,
+                arrowTipY: result.arrowTipY,
+              })
+            );
+          }
+        });
+      }
+    };
+
+    // 위젯이 변경될 때마다 화살표 업데이트
+    const timeoutId = setTimeout(updateArrowConnections, 0);
+    return () => clearTimeout(timeoutId);
+  }, [widgets, dispatch]);
+
   return (
     <div className="flex flex-col h-screen">
       {/* 툴바 */}
@@ -646,7 +1117,10 @@ export default function Whiteboard() {
           <Button
             variant={tool === "arrow" ? "toolSelect" : "white"}
             size="icon"
-            onClick={() => setTool("arrow")}
+            onClick={() => {
+              setTool("arrow");
+              handleArrowButtonClick();
+            }}
           >
             <MoveRight className="h-4 w-4" />
             <span className="sr-only">Text tool</span>
@@ -768,18 +1242,18 @@ export default function Whiteboard() {
             isPanning ? "cursor-grabbing" : ""
           }`}
         />
-        {/* WidgetShell 컴포넌트들을 렌더링 */}
+        {/* WidgetShell 컴포넌트을 렌더링 */}
         {widgets.map((widget) => (
           <WidgetShell
             key={widget.id}
             widget={widget}
             scale={scale}
             offset={offset}
-            draggable={widget.innerWidget.draggable}
-            editable={widget.innerWidget.editable}
-            resizeable={widget.innerWidget.resizeable}
-            headerBar={widget.innerWidget.headerBar}
-            footerBar={widget.innerWidget.footerBar}
+            draggable={widget.resizable}
+            editable={widget.editable}
+            resizeable={widget.resizable}
+            headerBar={false}
+            footerBar={false}
           />
         ))}
         <CreateBoardDialog
@@ -797,6 +1271,56 @@ export default function Whiteboard() {
           setTool={setTool}
         />
       </div>
+
+      {/* Arrow 버튼 */}
+      {/* <Button
+        variant={isArrowMode ? "toolSelect" : "white"}
+        size="icon"
+        onClick={handleArrowButtonClick}
+      >
+        <MoveRight className="h-4 w-4" />
+        <span className="sr-only">Arrow tool</span>
+      </Button> */}
+
+      {/* 임시 화살표 렌더링 */}
+      {isDrawingArrow && tempArrow && (
+        <ArrowR
+          shapeProps={tempArrow}
+          isSelected={true}
+          scale={scale}
+          offset={offset}
+          onChange={() => {}}
+          onDragMove={() => {}}
+        />
+      )}
+
+      {/* 기존 화살표들 렌더링 */}
+      {widgets
+        .filter((w) => w.innerWidget.type === "arrow")
+        .map((arrow) => {
+          const arrowWidget = arrow as ShellWidgetProps<ArrowWidget>;
+          return (
+            <ArrowR
+              key={arrow.id}
+              shapeProps={arrowWidget.innerWidget}
+              isSelected={selectedWidget === arrow.id}
+              scale={scale}
+              offset={offset}
+              onChange={(newAttrs) => {
+                dispatch(
+                  updateWidget({
+                    ...arrowWidget,
+                    innerWidget: {
+                      ...arrowWidget.innerWidget,
+                      ...newAttrs,
+                    },
+                  })
+                );
+              }}
+              onDragMove={handleArrowDragMove}
+            />
+          );
+        })}
     </div>
   );
 }
