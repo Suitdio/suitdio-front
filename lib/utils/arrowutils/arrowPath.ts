@@ -1,27 +1,27 @@
-// utils/helpers.ts
-import { AllWidgetTypes } from "../../type";
+// utils/arrowpath.ts
 
-interface WidgetWithDimensions {
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-}
+import { AllWidgetTypes, ArrowWidget } from "@/lib/type"; // 필요한 타입들을 import
+
+// Define NonArrowWidgetTypes to exclude ArrowWidget
+export type NonArrowWidgetTypes = Exclude<AllWidgetTypes, ArrowWidget>;
 
 export const snapDistance = 10;
 
 // 도형의 각 면의 중앙 좌표 반환
-export const getwidgetSideCenters = (widget: AllWidgetTypes) => {
-  const widgetX = widget.x ?? 0;
-  const widgetY = widget.y ?? 0;
-  const widgetWidth = ("width" in widget ? widget.width : undefined) ?? 100;
-  const widgetHeight = ("height" in widget ? widget.height : undefined) ?? 30;
+export const getShapeSideCenters = (shape: NonArrowWidgetTypes) => {
+  const DEFAULT_WIDTH = 100;
+  const DEFAULT_HEIGHT = 50;
+
+  const shapeX = shape.x;
+  const shapeY = shape.y;
+  const shapeWidth = shape.width ?? DEFAULT_WIDTH;
+  const shapeHeight = shape.height ?? DEFAULT_HEIGHT;
 
   const centers = [
-    { x: widgetX + widgetWidth / 2, y: widgetY }, // 상단 중앙
-    { x: widgetX + widgetWidth / 2, y: widgetY + widgetHeight }, // 하단 중앙
-    { x: widgetX, y: widgetY + widgetHeight / 2 }, // 좌측 중앙
-    { x: widgetX + widgetWidth, y: widgetY + widgetHeight / 2 }, // 우측 중앙
+    { x: shapeX + shapeWidth / 2, y: shapeY }, // 상단 중앙
+    { x: shapeX + shapeWidth / 2, y: shapeY + shapeHeight }, // 하단 중앙
+    { x: shapeX, y: shapeY + shapeHeight / 2 }, // 좌측 중앙
+    { x: shapeX + shapeWidth, y: shapeY + shapeHeight / 2 }, // 우측 중앙
   ];
 
   return centers;
@@ -31,41 +31,37 @@ export const getwidgetSideCenters = (widget: AllWidgetTypes) => {
 export const findClosestWidgetAtPoint = (
   x: number,
   y: number,
-  widgets: AllWidgetTypes[]
-): AllWidgetTypes | null => {
-  let closestWidget: AllWidgetTypes | null = null;
-  let minDistance = Infinity;
+  shapes: NonArrowWidgetTypes[]
+): NonArrowWidgetTypes | null => {
+  let closestShape: NonArrowWidgetTypes | null = null;
+  shapes.forEach((shape) => {
+    const DEFAULT_WIDTH = 100;
+    const DEFAULT_HEIGHT = 50;
 
-  widgets.forEach((widget) => {
-    const widgetX = widget.x ?? 0;
-    const widgetY = widget.y ?? 0;
-    const widgetWidth = ("width" in widget ? widget.width : undefined) ?? 100;
-    const widgetHeight = ("height" in widget ? widget.height : undefined) ?? 30;
+    const shapeX = shape.x;
+    const shapeY = shape.y;
+    const shapeWidth = shape.width ?? DEFAULT_WIDTH;
+    const shapeHeight = shape.height ?? DEFAULT_HEIGHT;
 
-    // 도형과의 거리 계산
-    const distance = Math.min(
-      Math.hypot(x - widgetX, y - widgetY),
-      Math.hypot(x - (widgetX + widgetWidth), y - widgetY),
-      Math.hypot(x - widgetX, y - (widgetY + widgetHeight)),
-      Math.hypot(x - (widgetX + widgetWidth), y - (widgetY + widgetHeight))
-    );
-
-    if (distance < minDistance && distance <= snapDistance) {
-      minDistance = distance;
-      closestWidget = widget;
+    if (
+      x >= shapeX - snapDistance &&
+      x <= shapeX + shapeWidth + snapDistance &&
+      y >= shapeY - snapDistance &&
+      y <= shapeY + shapeHeight + snapDistance
+    ) {
+      closestShape = shape;
     }
   });
-
-  return closestWidget;
+  return closestShape;
 };
 
 // 도형의 가장 가까운 면의 중앙 점 계산
 export const getClosestSidePoint = (
-  widget: AllWidgetTypes,
+  shape: NonArrowWidgetTypes,
   x: number,
   y: number
 ) => {
-  const centers = getwidgetSideCenters(widget);
+  const centers = getShapeSideCenters(shape);
   let closestPoint = centers[0];
   let minDistance = Math.hypot(x - centers[0].x, y - centers[0].y);
 
@@ -81,42 +77,88 @@ export const getClosestSidePoint = (
 };
 
 // 두 도형 사이의 화살표 좌표를 계산하는 함수
-export function getConnectorPoints(from: AllWidgetTypes, to: AllWidgetTypes) {
-  const fromCenters = getwidgetSideCenters(from);
-  const toCenters = getwidgetSideCenters(to);
+export function getConnectorPoints(
+  from: NonArrowWidgetTypes,
+  to: NonArrowWidgetTypes
+) {
+  const fromCenters = getShapeSideCenters(from);
+  const toCenters = getShapeSideCenters(to);
 
-  let bestFromPoint = fromCenters[0];
-  let bestToPoint = toCenters[0];
-  let minDistance = Infinity;
+  const fromCenterX = from.x + (from.width ?? 100) / 2;
+  const fromCenterY = from.y + (from.height ?? 50) / 2;
 
-  fromCenters.forEach((fromPoint) => {
-    toCenters.forEach((toPoint) => {
-      const distance = Math.hypot(
-        toPoint.x - fromPoint.x,
-        toPoint.y - fromPoint.y
-      );
-      if (distance < minDistance) {
-        minDistance = distance;
-        bestFromPoint = fromPoint;
-        bestToPoint = toPoint;
-      }
-    });
-  });
+  const toCenterX = to.x + (to.width ?? 100) / 2;
+  const toCenterY = to.y + (to.height ?? 50) / 2;
 
-  // 화살표 헤드 계산
-  const angle = Math.atan2(
-    bestToPoint.y - bestFromPoint.y,
-    bestToPoint.x - bestFromPoint.x
+  let fromPoint, toPoint;
+
+  const dx = toCenterX - fromCenterX;
+  const dy = toCenterY - fromCenterY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 0) {
+      fromPoint = fromCenters[3]; // 오른쪽
+      toPoint = toCenters[2]; // 왼쪽
+    } else {
+      fromPoint = fromCenters[2]; // 왼쪽
+      toPoint = toCenters[3]; // 오른쪽
+    }
+  } else {
+    if (dy > 0) {
+      fromPoint = fromCenters[1]; // 아래
+      toPoint = toCenters[0]; // 위
+    } else {
+      fromPoint = fromCenters[0]; // 위
+      toPoint = toCenters[1]; // 아래
+    }
+  }
+
+  const midX = (fromPoint.x + toPoint.x) / 2;
+  const midY = (fromPoint.y + toPoint.y) / 2;
+
+  let points: number[];
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const bendX = midX;
+    points = [
+      fromPoint.x,
+      fromPoint.y,
+      bendX,
+      fromPoint.y,
+      bendX,
+      toPoint.y,
+      toPoint.x,
+      toPoint.y,
+    ];
+  } else {
+    const bendY = midY;
+    points = [
+      fromPoint.x,
+      fromPoint.y,
+      fromPoint.x,
+      bendY,
+      toPoint.x,
+      bendY,
+      toPoint.x,
+      toPoint.y,
+    ];
+  }
+
+  const arrowAngle = Math.atan2(
+    toPoint.y - points[points.length - 3],
+    toPoint.x - points[points.length - 4]
   );
-  const arrowLength = 15;
-  const arrowOffset = -10;
 
-  const arrowTipX = bestToPoint.x + Math.cos(angle) * arrowOffset;
-  const arrowTipY = bestToPoint.y + Math.sin(angle) * arrowOffset;
+  const arrowOffset = -10;
+  const finalArrowTipX = toPoint.x + Math.cos(arrowAngle) * arrowOffset;
+  const finalArrowTipY = toPoint.y + Math.sin(arrowAngle) * arrowOffset;
+
+  points[points.length - 2] = finalArrowTipX;
+  points[points.length - 1] = finalArrowTipY;
 
   return {
-    points: [bestFromPoint.x, bestFromPoint.y, bestToPoint.x, bestToPoint.y],
-    arrowTipX,
-    arrowTipY,
+    points,
+    arrowTipX: finalArrowTipX,
+    arrowTipY: finalArrowTipY,
   };
 }

@@ -181,7 +181,8 @@ export interface ArrowWidget extends WidgetProps {
   points: number[];
   arrowTipX: number;
   arrowTipY: number;
-  arrowHeads: ArrowHeadState; // 화살표 머리 상태 추가
+  arrowHeads: ArrowHeadState;
+  text?: string;
 }
 
 // 타입 가드 함수
